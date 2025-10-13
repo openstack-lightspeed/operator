@@ -1,1 +1,0 @@
-# OpenStack Lightspeed Operator
