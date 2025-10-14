@@ -144,6 +144,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Defaults for OpenStackLightspeed
+	apiv1beta1.SetupDefaults()
+
 	if err = (&controller.OpenStackLightspeedReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
