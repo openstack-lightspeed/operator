@@ -17,25 +17,60 @@ limitations under the License.
 package v1beta1
 
 import (
+	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
+	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
+const (
+	// Container image fall-back defaults
+
+	// OpenStackLightspeedContainerImage is the fall-back container image for OpenStackLightspeed
+	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:os-docs-2024.2"
+)
 
 // OpenStackLightspeedSpec defines the desired state of OpenStackLightspeed
 type OpenStackLightspeedSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	OpenStackLightspeedCore `json:",inline"`
 
-	// Foo is an example field of OpenStackLightspeed. Edit openstacklightspeed_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// +kubebuilder:validation:Optional
+	// ContainerImage for the Openstack Lightspeed RAG container (will be set to environmental default if empty)
+	RAGImage string `json:"ragImage"`
+}
+
+// OpenStackLightspeedCore defines the desired state of OpenStackLightspeed
+type OpenStackLightspeedCore struct {
+	// +kubebuilder:validation:Required
+	// URL pointing to the LLM
+	LLMEndpoint string `json:"llmEndpoint"`
+
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Enum=azure_openai;bam;openai;watsonx;rhoai_vllm;rhelai_vllm;fake_provider
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Provider Type"
+	// Type of the provider serving the LLM
+	LLMEndpointType string `json:"llmEndpointType"`
+
+	// +kubebuilder:validation:Required
+	// Name of the model to use at the API endpoint provided in LLMEndpoint
+	ModelName string `json:"modelName"`
+
+	// +kubebuilder:validation:Required
+	// Secret name containing API token for the LLMEndpoint. The key for the field
+	// in the secret that holds the token should be "apitoken".
+	LLMCredentials string `json:"llmCredentials"`
+
+	// +kubebuilder:validation:Optional
+	// Configmap name containing a CA Certificates bundle
+	TLSCACertBundle string `json:"tlsCACertBundle"`
 }
 
 // OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed
 type OpenStackLightspeedStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "make" to regenerate code after modifying this file
+	// Conditions
+	Conditions condition.Conditions `json:"conditions,omitempty" optional:"true"`
+
+	// ObservedGeneration - the most recent generation observed for this object.
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -61,4 +96,26 @@ type OpenStackLightspeedList struct {
 
 func init() {
 	SchemeBuilder.Register(&OpenStackLightspeed{}, &OpenStackLightspeedList{})
+}
+
+// IsReady - returns true if OpenStackLightspeed is reconciled successfully
+func (instance OpenStackLightspeed) IsReady() bool {
+	return instance.Status.Conditions.IsTrue(OpenStackLightspeedReadyCondition)
+}
+
+type OpenStackLightspeedDefaults struct {
+	RAGImageURL string
+}
+
+var OpenStackLightspeedDefaultValues OpenStackLightspeedDefaults
+
+// SetupDefaults - initializes OpenStackLightspeedDefaultValues with default values from env vars
+func SetupDefaults() {
+	// Acquire environmental defaults and initialize OpenStackLightspeed defaults with them
+	openStackLightspeedDefaults := OpenStackLightspeedDefaults{
+		RAGImageURL: util.GetEnvVar(
+			"RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT", OpenStackLightspeedContainerImage),
+	}
+
+	OpenStackLightspeedDefaultValues = openStackLightspeedDefaults
 }
