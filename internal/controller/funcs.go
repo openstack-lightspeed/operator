@@ -171,6 +171,14 @@ func PatchOLSConfig(
 		return err
 	}
 
+	// Disable the OCP RAG
+	// TODO(lucasagomes): Remove this once we have a "query router" that can
+	// handle multiple RAGs nicely
+	err = uns.SetNestedField(olsConfig.Object, true, "spec", "ols", "byokRAGOnly")
+	if err != nil {
+		return err
+	}
+
 	// Add info which OpenStackLightspeed instance owns the OLSConfig
 	labels := olsConfig.GetLabels()
 	updatedLabels := map[string]interface{}{
