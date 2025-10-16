@@ -64,6 +64,7 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
+	Log.Info("OpenStackLightspeed Reconciling")
 
 	instance := &apiv1beta1.OpenStackLightspeed{}
 	err := r.Client.Get(ctx, req.NamespacedName, instance)
@@ -221,12 +222,13 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 			apiv1beta1.OpenStackLightspeedReadyCondition,
 			apiv1beta1.OpenStackLightspeedReadyMessage,
 		)
+		Log.Info("OLSConfig is ready!")
 	} else {
-		Log.Info("OLSConfig is not ready yet. Waiting.")
+		Log.Info("OLSConfig is not ready yet. Waiting...")
 		return ctrl.Result{RequeueAfter: time.Second * time.Duration(5)}, nil
 	}
 
-	Log.Info("Reconciling OpenStackLightspeed")
+	Log.Info("OpenStackLightspeed Reconciled successfully")
 	return ctrl.Result{}, nil
 }
 
@@ -237,6 +239,7 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 	instance *apiv1beta1.OpenStackLightspeed,
 ) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
+	Log.Info("OpenStackLightspeed Reconciling Delete")
 
 	olsConfig, err := GetOLSConfig(ctx, helper)
 	if err != nil && k8s_errors.IsNotFound(err) {
@@ -271,6 +274,7 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 
+	Log.Info("OpenStackLightspeed Reconciling Delete completed")
 	return ctrl.Result{}, nil
 }
 
