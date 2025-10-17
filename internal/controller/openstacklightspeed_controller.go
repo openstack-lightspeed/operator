@@ -140,6 +140,10 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		instance.Spec.RAGImage = apiv1beta1.OpenStackLightspeedDefaultValues.RAGImageURL
 	}
 
+	if instance.Spec.MaxTokensForResponse == 0 {
+		instance.Spec.MaxTokensForResponse = apiv1beta1.OpenStackLightspeedDefaultValues.MaxTokensForResponse
+	}
+
 	OLSOperatorInstalled, err := IsOLSOperatorInstalled(ctx, helper)
 	if !OLSOperatorInstalled || err != nil {
 		errMsg := fmt.Errorf("installation of OpenShift LightSpeed not detected")

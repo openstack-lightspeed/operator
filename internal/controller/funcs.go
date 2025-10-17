@@ -126,8 +126,10 @@ func PatchOLSConfig(
 			},
 			"models": []interface{}{
 				map[string]interface{}{
-					"name":       instance.Spec.ModelName,
-					"parameters": map[string]interface{}{},
+					"name": instance.Spec.ModelName,
+					"parameters": map[string]interface{}{
+						"maxTokensForResponse": float64(instance.Spec.MaxTokensForResponse), // unstructured JSON numbers default to float64
+					},
 				},
 			},
 			"name": OpenStackLightspeedDefaultProvider,

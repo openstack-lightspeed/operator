@@ -59,6 +59,10 @@ spec:
                 - rhelai_vllm
                 - fake_provider
                 type: string
+              maxTokensForResponse:
+                description: MaxTokensForResponse defines the maximum number of tokens
+                  to be used for the response generation
+                type: integer
               modelName:
                 description: Name of the model to use at the API endpoint provided
                   in LLMEndpoint
