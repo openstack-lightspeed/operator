@@ -8,7 +8,7 @@ metadata:
   name: openstacklightspeed-viewer-role
 rules:
 - apiGroups:
-  - api.lightspeed.openstack.org
+  - lightspeed.openstack.org
   resources:
   - openstacklightspeeds
   verbs:
@@ -16,7 +16,7 @@ rules:
   - list
   - watch
 - apiGroups:
-  - api.lightspeed.openstack.org
+  - lightspeed.openstack.org
   resources:
   - openstacklightspeeds/status
   verbs:
