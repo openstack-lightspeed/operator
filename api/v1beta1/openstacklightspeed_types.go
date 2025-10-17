@@ -27,6 +27,7 @@ const (
 
 	// OpenStackLightspeedContainerImage is the fall-back container image for OpenStackLightspeed
 	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:os-docs-2024.2"
+	MaxTokensForResponseDefault       = 2048
 )
 
 // OpenStackLightspeedSpec defines the desired state of OpenStackLightspeed
@@ -62,6 +63,10 @@ type OpenStackLightspeedCore struct {
 	// +kubebuilder:validation:Optional
 	// Configmap name containing a CA Certificates bundle
 	TLSCACertBundle string `json:"tlsCACertBundle"`
+
+	// +kubebuilder:validation:Optional
+	// MaxTokensForResponse defines the maximum number of tokens to be used for the response generation
+	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
 }
 
 // OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed
@@ -104,7 +109,8 @@ func (instance OpenStackLightspeed) IsReady() bool {
 }
 
 type OpenStackLightspeedDefaults struct {
-	RAGImageURL string
+	RAGImageURL          string
+	MaxTokensForResponse int
 }
 
 var OpenStackLightspeedDefaultValues OpenStackLightspeedDefaults
@@ -115,6 +121,7 @@ func SetupDefaults() {
 	openStackLightspeedDefaults := OpenStackLightspeedDefaults{
 		RAGImageURL: util.GetEnvVar(
 			"RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT", OpenStackLightspeedContainerImage),
+		MaxTokensForResponse: MaxTokensForResponseDefault,
 	}
 
 	OpenStackLightspeedDefaultValues = openStackLightspeedDefaults
