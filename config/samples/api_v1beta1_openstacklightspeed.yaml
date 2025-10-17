@@ -1,4 +1,4 @@
-apiVersion: api.lightspeed.openstack.org/v1beta1
+apiVersion: lightspeed.openstack.org/v1beta1
 kind: OpenStackLightspeed
 metadata:
   labels:

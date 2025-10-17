@@ -49,9 +49,9 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 	return log.FromContext(ctx).WithName("Controllers").WithName("OpenStackLightspeed")
 }
 
-// +kubebuilder:rbac:groups=api.lightspeed.openstack.org,resources=openstacklightspeeds,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=api.lightspeed.openstack.org,resources=openstacklightspeeds/status,verbs=get;update;patch
-// +kubebuilder:rbac:groups=api.lightspeed.openstack.org,resources=openstacklightspeeds/finalizers,verbs=update
+// +kubebuilder:rbac:groups=lightspeed.openstack.org,resources=openstacklightspeeds,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=lightspeed.openstack.org,resources=openstacklightspeeds/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=lightspeed.openstack.org,resources=openstacklightspeeds/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

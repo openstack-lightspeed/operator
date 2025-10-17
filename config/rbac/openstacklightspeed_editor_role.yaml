@@ -8,7 +8,7 @@ metadata:
   name: openstacklightspeed-editor-role
 rules:
 - apiGroups:
-  - api.lightspeed.openstack.org
+  - lightspeed.openstack.org
   resources:
   - openstacklightspeeds
   verbs:
@@ -20,7 +20,7 @@ rules:
   - update
   - watch
 - apiGroups:
-  - api.lightspeed.openstack.org
+  - lightspeed.openstack.org
   resources:
   - openstacklightspeeds/status
   verbs:
