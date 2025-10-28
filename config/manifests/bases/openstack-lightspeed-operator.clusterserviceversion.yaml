@@ -1,0 +1,47 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: '[]'
+    capabilities: Basic Install
+  name: openstack-lightspeed-operator.v0.0.0
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions: {}
+  description: OpenStack Lightspeed is a generative AI-based virtual assistant for
+    RHOSO (Red Hat OpenStack Services on OpenShift) users
+  displayName: OpenStack Lightspeed
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      deployments: null
+    strategy: ""
+  installModes:
+  - supported: false
+    type: OwnNamespace
+  - supported: false
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - openstack
+  links:
+  - name: Openstack Lightspeed Operator
+    url: https://openstack-lightspeed-operator.domain
+  maintainers:
+  - email: lmartins@redhat.com
+    name: Lucas Alvares Gomes
+  - email: geguileo@redhat.com
+    name: Gorka Eguileor
+  - email: Lukas Piwowarski
+    name: lpiwowar@redhat.com
+  maturity: alpha
+  provider:
+    name: Red Hat
+    url: https://github.com/openstack-lightspeed/operator
+  version: 0.0.0

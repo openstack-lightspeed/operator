@@ -1,0 +1,86 @@
+name: "Build and push operator container image"
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+env:
+  REGISTRY: quay.io
+  IMAGE_ORG: openstack-lightspeed
+  OPERATOR_NAME: operator
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go (if applicable)
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Prepare variables
+        id: vars
+        run: |
+          SHA=${{ github.sha }}
+          VERSION="0.1.0-${SHA::7}"
+          IMAGE_TAG_BASE=${REGISTRY}/${IMAGE_ORG}/${OPERATOR_NAME}
+          OPERATOR_IMAGE=${IMAGE_TAG_BASE}:v${VERSION}
+          BUNDLE_IMAGE=${IMAGE_TAG_BASE}-bundle:v${VERSION}
+          CATALOG_IMAGE=${IMAGE_TAG_BASE}-catalog:v${VERSION}
+
+          LATEST_TAG=latest
+          OPERATOR_IMAGE_LATEST=${IMAGE_TAG_BASE}:${LATEST_TAG}
+          BUNDLE_IMAGE_LATEST=${IMAGE_TAG_BASE}-bundle:${LATEST_TAG}
+          CATALOG_IMAGE_LATEST=${IMAGE_TAG_BASE}-catalog:${LATEST_TAG}
+
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "IMAGE_TAG_BASE=$IMAGE_TAG_BASE" >> $GITHUB_ENV
+
+          echo "OPERATOR_IMAGE=$OPERATOR_IMAGE" >> $GITHUB_ENV
+          echo "BUNDLE_IMAGE=$BUNDLE_IMAGE" >> $GITHUB_ENV
+          echo "CATALOG_IMAGE=$CATALOG_IMAGE" >> $GITHUB_ENV
+
+          echo "OPERATOR_IMAGE_LATEST=$OPERATOR_IMAGE_LATEST" >> $GITHUB_ENV
+          echo "BUNDLE_IMAGE_LATEST=$BUNDLE_IMAGE_LATEST" >> $GITHUB_ENV
+          echo "CATALOG_IMAGE_LATEST=$CATALOG_IMAGE_LATEST" >> $GITHUB_ENV
+
+      - name: Install operator-sdk
+        uses: redhat-actions/openshift-tools-installer@v1
+        with:
+          source: github
+          operator-sdk: 1.38.0
+
+      - name: Log in to Quay
+        uses: docker/login-action@v3
+        with:
+          registry: quay.io
+          username: ${{ secrets.QUAY_USERNAME }}
+          password: ${{ secrets.QUAY_PASSWORD }}
+
+      - name: Build operator image
+        run: |
+          make docker-build IMG=$OPERATOR_IMAGE
+          docker tag $OPERATOR_IMAGE $OPERATOR_IMAGE_LATEST
+          make docker-push IMG=$OPERATOR_IMAGE
+          make docker-push IMG=$OPERATOR_IMAGE_LATEST
+
+      - name: Generate bundle
+        run: |
+          make bundle IMG=$OPERATOR_IMAGE
+          make bundle-build BUNDLE_IMG=$BUNDLE_IMAGE
+          docker tag $BUNDLE_IMAGE $BUNDLE_IMAGE_LATEST
+          make bundle-push BUNDLE_IMG=$BUNDLE_IMAGE
+          make bundle-push BUNDLE_IMG=$BUNDLE_IMAGE_LATEST
+
+      - name: Build catalog image
+        run: |
+          make catalog-build CATALOG_IMG=$CATALOG_IMAGE BUNDLE_IMG=$BUNDLE_IMAGE
+          docker tag $CATALOG_IMAGE $CATALOG_IMAGE_LATEST
+          make catalog-push CATALOG_IMG=$CATALOG_IMAGE
+          make catalog-push CATALOG_IMG=$CATALOG_IMAGE_LATEST
