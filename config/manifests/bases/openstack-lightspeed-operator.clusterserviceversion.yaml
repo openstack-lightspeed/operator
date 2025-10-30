@@ -4,8 +4,9 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
+    operatorframework.io/suggested-namespace: openshift-lightspeed
   name: openstack-lightspeed-operator.v0.0.0
-  namespace: placeholder
+  namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions: {}
@@ -20,13 +21,13 @@ spec:
       deployments: null
     strategy: ""
   installModes:
-  - supported: false
+  - supported: true
     type: OwnNamespace
   - supported: false
     type: SingleNamespace
   - supported: false
     type: MultiNamespace
-  - supported: true
+  - supported: false
     type: AllNamespaces
   keywords:
   - openstack
