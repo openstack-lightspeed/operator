@@ -190,6 +190,17 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
+.PHONY: ols-deploy
+ols-deploy: export OUTPUT_DIR = out
+ols-deploy: ## Deploy OpenShift Lightspeed Operator
+	bash scripts/gen-ols.sh
+	oc apply -f $(OUTPUT_DIR)/ols
+
+.PHONY: ols-undeploy
+ols-undeploy: export OUTPUT_DIR = out
+ols-undeploy: ## Deploy OpenShift Lightspeed Operator
+	find $(OUTPUT_DIR)/ols -name "*.yaml" -printf " -f %p" | xargs oc delete --ignore-not-found=$(ignore-not-found)
+
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
