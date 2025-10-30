@@ -97,7 +97,12 @@ func IsOLSOperatorInstalled(ctx context.Context, helper *common_helper.Helper) (
 
 	csvList := &uns.UnstructuredList{}
 	csvList.SetGroupVersionKind(csvGVR.GroupVersion().WithKind("clusterserviceversion"))
-	err := helper.GetClient().List(ctx, csvList)
+
+	listOpts := []client.ListOption{
+		client.InNamespace(""), // Retrieve from all namespaces
+	}
+
+	err := helper.GetClient().List(ctx, csvList, listOpts...)
 	if err != nil {
 		return false, err
 	}
