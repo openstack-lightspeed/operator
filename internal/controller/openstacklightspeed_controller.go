@@ -74,7 +74,7 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 	Log.Info("OpenStackLightspeed Reconciling")
 
 	instance := &apiv1beta1.OpenStackLightspeed{}
-	err := r.Client.Get(ctx, req.NamespacedName, instance)
+	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		if k8s_errors.IsNotFound(err) {
 			Log.Info("OpenStackLightspeed CR not found")
@@ -136,7 +136,7 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 	instance.Status.ObservedGeneration = instance.Generation
 
 	if !instance.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, helper, instance)
+		return ctrl.Result{}, r.reconcileDelete(ctx, helper, instance)
 	}
 
 	if instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer()) {
@@ -248,23 +248,23 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 	ctx context.Context,
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
-) (ctrl.Result, error) {
+) error {
 	Log := r.GetLogger(ctx)
 	Log.Info("OpenStackLightspeed Reconciling Delete")
 
 	olsConfig, err := GetOLSConfig(ctx, helper)
 	if err != nil && k8s_errors.IsNotFound(err) {
 		controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-		return ctrl.Result{}, nil
+		return nil
 	} else if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	ownerLabel := olsConfig.GetLabels()[OpenStackLightspeedOwnerIDLabel]
 	if ownerLabel == "" || ownerLabel != string(instance.GetObjectMeta().GetUID()) {
 		Log.Info("Skipping OLSConfig deletion as it is not managed by the OpenStackLightspeed instance")
 		controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-		return ctrl.Result{}, nil
+		return nil
 	}
 
 	_, err = controllerutil.CreateOrPatch(ctx, r.Client, &olsConfig, func() error {
@@ -275,18 +275,18 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 		return nil
 	})
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
-	err = r.Client.Delete(ctx, &olsConfig)
+	err = r.Delete(ctx, &olsConfig)
 	if err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 
 	Log.Info("OpenStackLightspeed Reconciling Delete completed")
-	return ctrl.Result{}, nil
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
