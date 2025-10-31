@@ -3,7 +3,12 @@
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
 # - use the VERSION as arg of the bundle target (e.g make bundle VERSION=0.0.2)
 # - use environment variables to overwrite this value (e.g export VERSION=0.0.2)
-VERSION ?= 0.0.1
+ifeq ($(origin VERSION), undefined)
+TAG ?= latest
+VERSION := 0.0.1
+else
+TAG ?= v$(VERSION)
+endif
 
 # CHANNELS define the bundle channels used in the bundle.
 # Add a new line here if you would like to change its default config. (E.g CHANNELS = "candidate,fast,stable")
@@ -28,12 +33,18 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# lightspeed.openstack.org/openstack-lightspeed-operator-bundle:$VERSION and lightspeed.openstack.org/openstack-lightspeed-operator-catalog:$VERSION.
+# lightspeed.openstack.org/openstack-lightspeed-operator-bundle:$TAG and lightspeed.openstack.org/openstack-lightspeed-operator-catalog:$TAG.
 IMAGE_TAG_BASE ?= quay.io/openstack-lightspeed/operator
+
+# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(TAG)
+
+CATALOG_NAME ?= openstack-lightspeed-catalog
+CATALOG_CHANNEL ?= alpha
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
-BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:v$(VERSION)
+BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(TAG)
 
 # BUNDLE_GEN_FLAGS are the flags passed to the operator-sdk generate bundle command
 BUNDLE_GEN_FLAGS ?= -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
@@ -174,7 +185,7 @@ build-installer: manifests generate kustomize ## Generate a consolidated YAML wi
 ##@ Deployment
 
 ifndef ignore-not-found
-  ignore-not-found = false
+  ignore-not-found = true
 endif
 
 .PHONY: install
@@ -190,9 +201,38 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	$(KUSTOMIZE) build config/default | $(KUBECTL) apply -f -
 
+.PHONY: ols-deploy
+ols-deploy: export OUTPUT_DIR = out
+ols-deploy: ## Deploy OpenShift Lightspeed Operator
+	bash scripts/gen-ols.sh
+	oc apply -f $(OUTPUT_DIR)/ols
+
+.PHONY: ols-undeploy
+ols-undeploy: export OUTPUT_DIR = out
+ols-undeploy: ## Deploy OpenShift Lightspeed Operator
+	find $(OUTPUT_DIR)/ols -name "*.yaml" -printf " -f %p" | xargs oc delete --ignore-not-found=$(ignore-not-found)
+
 .PHONY: undeploy
 undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
+
+# Deploy using the catalog image.
+.PHONY: catalog-deploy
+catalog-deploy: export OUTPUT_DIR = out
+catalog-deploy: ## Deploy using a catalog image.
+	bash scripts/gen-catalog.sh $(CATALOG_IMG) $(CATALOG_NAME)
+	oc apply -f $(OUTPUT_DIR)/catalog
+	bash scripts/gen-rhosls.sh $(CATALOG_NAME) $(CATALOG_CHANNEL)
+	oc apply -f $(OUTPUT_DIR)/rhosls
+
+# Deploy using the catalog image.
+.PHONY: catalog-undeploy
+catalog-undeploy: export OUTPUT_DIR = out
+catalog-undeploy: ## Undeploy using a catalog image.
+	find out/{catalog,rhosls} -name "*.yaml" -printf " -f %p" | xargs oc delete --ignore-not-found=true
+
+CATALOG_NAME ?= openstack-lightspeed-catalog
+CATALOG_CHANNEL ?= alpha
 
 ##@ Dependencies
 
@@ -302,9 +342,6 @@ endif
 # A comma-separated list of bundle images (e.g. make catalog-build BUNDLE_IMGS=example.com/operator-bundle:v0.1.0,example.com/operator-bundle:v0.2.0).
 # These images MUST exist in a registry and be pull-able.
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
-
-# The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
-CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
 
 # Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
 ifneq ($(origin CATALOG_BASE_IMG), undefined)
