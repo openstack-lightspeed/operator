@@ -19,41 +19,41 @@ We'll use CRC and deploy it using the development tools from `install_yamls`.
 
 Get install-yamls:
 ```bash
-$ git clone https://github.com/openstack-k8s-operators/install_yamls.git
-$ cd install_yamls/devsetup
-$ make download_tools
+git clone https://github.com/openstack-k8s-operators/install_yamls.git
+cd install_yamls/devsetup
+make download_tools
 ```
 
 Get pull credentials (pull secret) from `https://cloud.redhat.com/openshift/create/local`
 and save it in `pull-secret.txt` of the current path, or you can save it anywhere
 and use the `PULL_SECRET` env var to point to it like in the next example.
 
-Deploy OpenShift and OpenStack operator:
-```bash
-$ PULL_SECRET=~/work/pull-secret CRC_MONITORING_ENABLED=true CPUS=12 MEMORY=25600 DISK=100 make crc
-$ make crc_attach_default_interface
-$ eval $(crc oc-env)
-$ cd ../..
-```
-
-### Get the operator repository
+Deploy OpenShift CRC and attach the libvirt default interface to CRC:
 
 ```bash
-$ git clone https://github.com/openstack-lightspeed/operator.git
-$ cd operator
+PULL_SECRET=~/work/pull-secret CRC_MONITORING_ENABLED=true CPUS=12 MEMORY=25600 DISK=100 make crc
+make crc_attach_default_interface
+eval $(crc oc-env)
+cd ../..
 ```
 
-### Deploy operators
+### Deploy OpenShift and OpenStack Lightspeed Operators
 
-We need to deploy the OpenShift Lightspeed and the OpenStack Lightspeed
-operators:
+Get the operator repository:
 
 ```bash
-$ make ols-deploy
-$ make catalog-deploy
+git clone https://github.com/openstack-lightspeed/operator.git
+cd operator
 ```
 
-Now check that they are running:
+First, deploy OpenShift Lightspeed, then proceed to deploy OpenStack Lightspeed:
+
+```bash
+make ols-deploy
+make catalog-deploy
+```
+
+Now verify that they are up and running:
 
 ```bash
 $ oc get -n openshift-lightspeed pods
@@ -65,7 +65,7 @@ NAME                                                              READY   STATUS
 openstack-lightspeed-operator-controller-manager-76df7fbfb5wggr   1/1     Running   0          72s
 ```
 
-### Create LLM credentials
+### Set up the LLM endpoint along with its credentials
 
 To access the LLM we need:
 - An API Key (eg: in `LLM_KEY`)
@@ -79,14 +79,17 @@ the other 2 together with the references to the first 2 will be passed in the
 `OpenStackLightspeeed` resource that triggerrs the deployment.
 
 Define the URL and model env vars, for example para Gemini:
-```
-$ LLM_ENDPOINT=https://generativelanguage.googleapis.com/v1beta/openai
-$ LLM_MODEL=gemini-2.5-pro
+
+```bash
+LLM_ENDPOINT=https://generativelanguage.googleapis.com/v1beta/openai
+LLM_MODEL=gemini-2.5-pro
+LLM_KEY=<API TOKEN>
 ```
 
 Create the LLM API key secret:
-```
-$ oc apply -f - <<EOF
+
+```bash
+oc apply -f - <<EOF
 apiVersion: v1
 kind: Secret
 type: Opaque
@@ -98,10 +101,14 @@ stringData:
 EOF
 ```
 
-Not needed for Gemini, but here's an example of the optional certificate:
+Not required for Gemini, but here is an example of an optional certificate:
+
+```bash
+CERT_SECRET_NAME=openstack-lightspeed-certs
+CERT_FILE=/path/to/cert.crt
 ```
-$ export CERT_SECRET_NAME=openstack-lightspeed-certs
-$ oc apply -f - <<EOF
+```bash
+oc apply -f - <<EOF
 apiVersion: v1
 kind: ConfigMap
 type: Opaque
@@ -110,9 +117,7 @@ metadata:
   namespace: openshift-lightspeed
 data:
   cert: |
-    -----BEGIN CERTIFICATE-----
-    MIIE5 <...>
-    ------END CERTIFICATE-----
+$(sed 's/^/    /' "$CERT_FILE")
 EOF
 ```
 
@@ -120,14 +125,15 @@ EOF
 
 Create the `openstack` namespace if we haven't deployed openstack yet:
 
-```
-$ oc create namespace openstack
+```bash
+oc create namespace openstack
 ```
 
 Deploy OpenStack-Lightspeed, a configuration would look like this (for actual
 examples look in following sections):
-```
-$ oc apply -f - <<EOF
+
+```bash
+oc apply -f - <<EOF
 apiVersion: lightspeed.openstack.org/v1beta1
 kind: OpenStackLightspeed
 metadata:
@@ -152,8 +158,8 @@ EOF
 Confirm the conditions are met
 
 ```bash
-$ oc describe -n openstack openstacklightspeed
-$ oc describe -n openshift-lightspeed olsconfig
+oc describe -n openstack openstacklightspeed
+oc describe -n openshift-lightspeed olsconfig
 ```
 
 ### Use
