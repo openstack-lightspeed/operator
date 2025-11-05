@@ -250,9 +250,9 @@ func ResolveIndexID(
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
 ) (string, ctrl.Result, error) {
-	result, err := createOLSJob(ctx, helper, instance)
+	err := createOLSJob(ctx, helper, instance)
 	if err != nil {
-		return "", result, err
+		return "", ctrl.Result{}, err
 	}
 
 	podList := &corev1.PodList{}
@@ -304,7 +304,9 @@ func extractEnvFromPodLogs(ctx context.Context, pod *corev1.Pod, envVarName stri
 	if err != nil {
 		return "", err
 	}
-	defer podLogs.Close()
+	defer func() {
+		_ = podLogs.Close()
+	}()
 
 	buf := new(strings.Builder)
 	_, err = io.Copy(buf, podLogs)
@@ -333,7 +335,7 @@ func createOLSJob(
 	ctx context.Context,
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
-) (ctrl.Result, error) {
+) error {
 	imageHash := sha256.Sum256([]byte(instance.Spec.RAGImage))
 	imageHashStr := fmt.Sprintf("%x", imageHash)
 	imageHashStr = imageHashStr[len(imageHashStr)-9:]
@@ -374,15 +376,15 @@ func createOLSJob(
 	}
 
 	if err := controllerutil.SetControllerReference(instance, OLSPod, helper.GetScheme()); err != nil {
-		return ctrl.Result{}, err
+		return err
 	}
 
 	err := helper.GetClient().Create(ctx, OLSPod)
 	if err != nil && !k8s_errors.IsAlreadyExists(err) {
-		return ctrl.Result{}, err
+		return err
 	}
 
-	return ctrl.Result{}, nil
+	return nil
 }
 
 func requeueWaitingPod(helper *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) (string, ctrl.Result, error) {

@@ -1,0 +1,9 @@
+repos:
+  - repo: local
+    hooks:
+      - id: make-lint
+        name: make-lint
+        language: system
+        entry: make
+        args: ['lint']
+        pass_filenames: false

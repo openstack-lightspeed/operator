@@ -189,3 +189,39 @@ Use this for quick development and testing.
 
 *Attention*: In this mode RBACs are ignored, so when changing those please run
 the operator in the OpenShift cluster with an image.
+
+## Quickstart
+
+### Run OpenShift Cluster
+
+We'll use CRC and deploy it using the development tools from `install_yamls`.
+
+Get install-yamls:
+```bash
+git clone https://github.com/openstack-k8s-operators/install_yamls.git
+cd install_yamls/devsetup
+make download_tools
+```
+
+Get pull credentials (pull secret) from `https://cloud.redhat.com/openshift/create/local`
+and save it in `pull-secret.txt` of the current path, or you can save it anywhere
+and use the `PULL_SECRET` env var to point to it like in the next example.
+
+## Development
+
+### Running Pre-Commit Hooks
+
+To ensure code quality and consistency, run pre-commit hooks locally before
+submitting a pull request.
+
+Install hooks:
+
+```bash
+pre-commit install
+```
+
+Run all hooks manually:
+
+```bash
+pre-commit run --all-files
+```
