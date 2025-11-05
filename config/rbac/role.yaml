@@ -91,5 +91,22 @@ rules:
   resources:
   - clusterserviceversions
   verbs:
+  - delete
   - get
   - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - installplans
+  - subscriptions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

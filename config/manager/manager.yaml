@@ -65,6 +65,9 @@ spec:
           - --health-probe-bind-address=:8081
         image: controller:latest
         name: manager
+        env:
+          - name: "OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION"
+            value: "1.0.7"
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

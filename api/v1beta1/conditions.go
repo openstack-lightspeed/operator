@@ -22,6 +22,10 @@ const (
 	// OpenStackLightspeedReadyCondition Status=True condition which indicates if OpenStackLightspeedReadyCondition
 	// is configured and operational
 	OpenStackLightspeedReadyCondition condition.Type = "OpenStackLightspeedReady"
+
+	// OpenShift Lightspeed Operator Status=True condition which indicates if OpenShift Lightspeed is installed and
+	// operational and it can be used by OpenStack Lihgtspeed operator.
+	OpenShiftLightspeedOperatorReadyCondition condition.Type = "OpenShiftLightspeedOperatorReady"
 )
 
 // Common Messages used by API objects.
@@ -34,4 +38,10 @@ const (
 
 	// OpenStackLightspeedWaitingVectorDBMessage
 	OpenStackLightspeedWaitingVectorDBMessage = "Waiting for OpenStackLightspeed vector DB pod to become ready"
+
+	// OpenShiftLightspeedOperatorWaiting
+	OpenShiftLightspeedOperatorWaiting = "Waiting for the OpenShift Lightspeed operator to deploy."
+
+	// OpenShiftLigthspeedOperatorReady
+	OpenShiftLightspeedOperatorReady = "OpenShift Lightspeed operator is ready."
 )

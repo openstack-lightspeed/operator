@@ -35,6 +35,8 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	"github.com/openstack-lightspeed/operator/internal/controller"
 	// +kubebuilder:scaffold:imports
@@ -47,6 +49,8 @@ var (
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+
+	utilruntime.Must(operatorsv1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(apiv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme

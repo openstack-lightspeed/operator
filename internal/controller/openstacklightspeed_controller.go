@@ -24,15 +24,19 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 )
@@ -55,8 +59,10 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=ols.openshift.io,resources=olsconfigs/finalizers,verbs=update
-// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;
-// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete;
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;watch;update;patch;delete
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=batch,resources=jobs,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=pods,verbs=create;delete;get;list;patch;update;watch
 // +kubebuilder:rbac:groups="",resources=pods/log,verbs=get
 
@@ -136,7 +142,7 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 	instance.Status.ObservedGeneration = instance.Generation
 
 	if !instance.DeletionTimestamp.IsZero() {
-		return ctrl.Result{}, r.reconcileDelete(ctx, helper, instance)
+		return r.reconcileDelete(ctx, helper, instance)
 	}
 
 	if instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer()) {
@@ -151,17 +157,36 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		instance.Spec.MaxTokensForResponse = apiv1beta1.OpenStackLightspeedDefaultValues.MaxTokensForResponse
 	}
 
-	OLSOperatorInstalled, err := IsOLSOperatorInstalled(ctx, helper)
-	if !OLSOperatorInstalled || err != nil {
-		errMsg := fmt.Errorf("installation of OpenShift LightSpeed not detected")
+	// Ensure a compatible version of the OpenShift Lightspeed Operator is running in the cluster.
+	// This checks if the correct OLS Operator version is present and installs it if necessary.
+	isOLSOperatorInstalled, err := EnsureOLSOperatorInstalled(ctx, helper, instance)
+	if err != nil {
 		instance.Status.Conditions.Set(condition.FalseCondition(
-			apiv1beta1.OpenStackLightspeedReadyCondition,
+			apiv1beta1.OpenShiftLightspeedOperatorReadyCondition,
 			condition.ErrorReason,
 			condition.SeverityWarning,
 			condition.DeploymentReadyErrorMessage,
-			errMsg))
-		return ctrl.Result{}, errMsg
+			err.Error(),
+		))
+
+		return ctrl.Result{}, nil
+	} else if !isOLSOperatorInstalled {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			apiv1beta1.OpenShiftLightspeedOperatorReadyCondition,
+			condition.RequestedReason,
+			condition.SeverityInfo,
+			apiv1beta1.OpenShiftLightspeedOperatorWaiting,
+		))
+
+		// In this branch we know that the
+		return ctrl.Result{Requeue: true, RequeueAfter: 10 * time.Second}, nil
 	}
+
+	// Mark the OpenShift Lightspeed Operator as ready in the status conditions.
+	instance.Status.Conditions.MarkTrue(
+		apiv1beta1.OpenShiftLightspeedOperatorReadyCondition,
+		apiv1beta1.OpenShiftLightspeedOperatorReady,
+	)
 
 	// TODO(lpiwowar): Remove ResolveIndexID once OpenShift Lightspeed supports auto discovery of the indexID directly
 	// from the vector db image.
@@ -248,50 +273,65 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 	ctx context.Context,
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
-) error {
+) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 	Log.Info("OpenStackLightspeed Reconciling Delete")
 
-	olsConfig, err := GetOLSConfig(ctx, helper)
-	if err != nil && k8s_errors.IsNotFound(err) {
-		controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-		return nil
-	} else if err != nil {
-		return err
-	}
-
-	ownerLabel := olsConfig.GetLabels()[OpenStackLightspeedOwnerIDLabel]
-	if ownerLabel == "" || ownerLabel != string(instance.GetObjectMeta().GetUID()) {
-		Log.Info("Skipping OLSConfig deletion as it is not managed by the OpenStackLightspeed instance")
-		controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-		return nil
-	}
-
-	_, err = controllerutil.CreateOrPatch(ctx, r.Client, &olsConfig, func() error {
-		if ok := controllerutil.RemoveFinalizer(&olsConfig, helper.GetFinalizer()); !ok {
-			return fmt.Errorf("remove finalizer failed")
-		}
-
-		return nil
-	})
+	isRemoved, err := RemoveOLSConfig(ctx, helper, instance)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
+	} else if !isRemoved {
+		Log.Info("OLSConfig removal in progress ...")
+		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
 	}
 
-	err = r.Delete(ctx, &olsConfig)
+	isUninstalled, err := UninstallInstanceOwnedOLSOperator(ctx, helper, instance)
 	if err != nil {
-		return err
+		return ctrl.Result{}, err
+	} else if !isUninstalled {
+		Log.Info("OLS Operator uninstallation in progress ...")
+		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
 	}
 
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 
 	Log.Info("OpenStackLightspeed Reconciling Delete completed")
-	return nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OpenStackLightspeedReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiv1beta1.OpenStackLightspeed{}).
+		Owns(&operatorsv1alpha1.ClusterServiceVersion{}).
+		Owns(&operatorsv1alpha1.Subscription{}).
+		Watches(
+			&operatorsv1alpha1.InstallPlan{},
+			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspeeds),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+// NotifyAllOpenStackLightspeeds returns a list of reconcile requests for all OpenStackLightspeed objects
+// in the same namespace as the given InstallPlan. This is used to trigger reconciliation on all
+// OpenStackLightspeed resources when an InstallPlan in their namespace changes.
+func (r *OpenStackLightspeedReconciler) NotifyAllOpenStackLightspeeds(ctx context.Context, obj client.Object) []ctrl.Request {
+	// Pre-allocate requests slice with the capacity equal to the number of OpenStackLightspeed objects
+	var lightspeedList apiv1beta1.OpenStackLightspeedList
+	if err := r.List(ctx, &lightspeedList, client.InNamespace("")); err != nil {
+		return nil
+	}
+	requests := make([]ctrl.Request, 0, len(lightspeedList.Items))
+
+	for _, item := range lightspeedList.Items {
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Namespace: item.GetNamespace(),
+				Name:      item.GetName(),
+			},
+		})
+	}
+
+	return requests
 }
