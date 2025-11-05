@@ -4,7 +4,8 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-    operatorframework.io/suggested-namespace: openshift-lightspeed
+    operatorframework.io/suggested-namespace: openstack-lightspeed
+    repository: https://github.com/openstack-lightspeed/operator
   name: openstack-lightspeed-operator.v0.0.0
   namespace: openshift-lightspeed
 spec:
@@ -30,10 +31,13 @@ spec:
   - supported: false
     type: AllNamespaces
   keywords:
+  - ai
+  - assistant
   - openstack
+  - llm
   links:
-  - name: Openstack Lightspeed Operator
-    url: https://openstack-lightspeed-operator.domain
+  - name: OpenStack Lightspeed Operator
+    url: https://github.com/openstack-lightspeed/operator
   maintainers:
   - email: lmartins@redhat.com
     name: Lucas Alvares Gomes

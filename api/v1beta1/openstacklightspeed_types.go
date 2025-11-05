@@ -35,7 +35,7 @@ type OpenStackLightspeedSpec struct {
 	OpenStackLightspeedCore `json:",inline"`
 
 	// +kubebuilder:validation:Optional
-	// ContainerImage for the Openstack Lightspeed RAG container (will be set to environmental default if empty)
+	// ContainerImage for the OpenStack Lightspeed RAG container (will be set to environmental default if empty)
 	RAGImage string `json:"ragImage"`
 }
 
