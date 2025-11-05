@@ -68,7 +68,7 @@ spec:
                   in LLMEndpoint
                 type: string
               ragImage:
-                description: ContainerImage for the Openstack Lightspeed RAG container
+                description: ContainerImage for the OpenStack Lightspeed RAG container
                   (will be set to environmental default if empty)
                 type: string
               tlsCACertBundle:
