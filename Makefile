@@ -217,18 +217,18 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 # Deploy using the catalog image.
-.PHONY: catalog-deploy
-catalog-deploy: export OUTPUT_DIR = out
-catalog-deploy: ## Deploy using a catalog image.
+.PHONY: openstack-lightspeed-deploy
+openstack-lightspeed-deploy: export OUTPUT_DIR = out
+openstack-lightspeed-deploy: ## Deploy using a catalog image.
 	bash scripts/gen-catalog.sh $(CATALOG_IMG) $(CATALOG_NAME)
 	oc apply -f $(OUTPUT_DIR)/catalog
 	bash scripts/gen-rhosls.sh $(CATALOG_NAME) $(CATALOG_CHANNEL)
 	oc apply -f $(OUTPUT_DIR)/rhosls
 
 # Deploy using the catalog image.
-.PHONY: catalog-undeploy
-catalog-undeploy: export OUTPUT_DIR = out
-catalog-undeploy: ## Undeploy using a catalog image.
+.PHONY: openstack-lightspeed-undeploy
+openstack-lightspeed-undeploy: export OUTPUT_DIR = out
+openstack-lightspeed-undeploy: ## Undeploy using a catalog image.
 	find out/{catalog,rhosls} -name "*.yaml" -printf " -f %p" | xargs oc delete --ignore-not-found=true
 
 CATALOG_NAME ?= openstack-lightspeed-catalog

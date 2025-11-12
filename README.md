@@ -37,7 +37,7 @@ eval $(crc oc-env)
 cd ../..
 ```
 
-### Deploy OpenShift and OpenStack Lightspeed Operators
+### Deploy OpenStack Lightspeed Operator
 
 Get the operator repository:
 
@@ -46,20 +46,15 @@ git clone https://github.com/openstack-lightspeed/operator.git
 cd operator
 ```
 
-First, deploy OpenShift Lightspeed, then proceed to deploy OpenStack Lightspeed:
+First, deploy OpenStack Lightspeed Operator:
 
 ```bash
-make ols-deploy
-make catalog-deploy
+make openstack-lightspeed-deploy
 ```
 
-Now verify that they are up and running:
+Next, verify that the OpenStack Lightspeed Operator pod is running:
 
 ```bash
-$ oc get -n openshift-lightspeed pods
-NAME                                                      READY   STATUS    RESTARTS   AGE
-lightspeed-operator-controller-manager-7f4698b55c-8w8vn   1/1     Running   0          81s
-
 $ oc get -n openstack-lightspeed pods
 NAME                                                              READY   STATUS    RESTARTS   AGE
 openstack-lightspeed-operator-controller-manager-76df7fbfb5wggr   1/1     Running   0          72s
