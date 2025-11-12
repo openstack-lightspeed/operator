@@ -196,8 +196,15 @@ func GetOLSOperatorCSV(
 	ctx context.Context,
 	helper *common_helper.Helper,
 ) (*operatorsv1alpha1.ClusterServiceVersion, error) {
+	// Use a dedicated client here because the default controller-runtime client may be restricted
+	// to WATCH_NAMESPACE. This ensures we can retrieve CSVs from all namespaces cluster-wide.
+	rawClient, err := GetRawClient(helper)
+	if err != nil {
+		return nil, err
+	}
+
 	var CSVs operatorsv1alpha1.ClusterServiceVersionList
-	err := helper.GetClient().List(ctx, &CSVs, client.InNamespace(""))
+	err = rawClient.List(ctx, &CSVs, client.InNamespace(""))
 	if err != nil && k8s_errors.IsNotFound(err) {
 		return nil, nil
 	} else if err != nil {

@@ -68,6 +68,10 @@ spec:
         env:
           - name: "OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION"
             value: "1.0.7"
+          - name: WATCH_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:

@@ -426,6 +426,22 @@ func IsOwnedBy(object metav1.Object, owner metav1.Object) bool {
 	return false
 }
 
+// GetRawClient returns a raw client that is not restricted to WATCH_NAMESPACE.
+// This is useful for operations that need to query resources across all namespaces
+// cluster wide.
+func GetRawClient(helper *common_helper.Helper) (client.Client, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	rawClient, err := client.New(cfg, client.Options{Scheme: helper.GetScheme()})
+	if err != nil {
+		return nil, err
+	}
+
+	return rawClient, nil
+}
 
 // OLSConfigPing adds a random label to the OLSConfig to trigger a reconciliation
 // by the OpenShift Lightspeed operator. This causes the operator to update the Status field.
