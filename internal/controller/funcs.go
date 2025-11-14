@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -251,7 +253,7 @@ func IsOLSConfigReady(ctx context.Context, helper *common_helper.Helper) (bool, 
 	for _, OLSConfigCondition := range OLSConfigConditions {
 		for _, requiredConditionType := range requiredConditionTypes {
 			if OLSConfigCondition.Type == requiredConditionType && OLSConfigCondition.Status != metav1.ConditionTrue {
-				return false, nil
+				return false, OLSConfigPing(ctx, helper)
 			}
 		}
 	}
@@ -424,3 +426,30 @@ func IsOwnedBy(object metav1.Object, owner metav1.Object) bool {
 	return false
 }
 
+
+// OLSConfigPing adds a random label to the OLSConfig to trigger a reconciliation
+// by the OpenShift Lightspeed operator. This causes the operator to update the Status field.
+// Note: This is a workaround for a current limitation—when the OLS operator is installed
+// in the openstack-lightspeed namespace, it does not automatically update the OLSConfig
+// status as expected.
+func OLSConfigPing(ctx context.Context, helper *common_helper.Helper) error {
+	const randomLabelKey = "openstack-lightspeed/ping"
+
+	olsConfig, err := GetOLSConfig(ctx, helper)
+	if err != nil {
+		return err
+	}
+
+	labels := olsConfig.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	labels[randomLabelKey] = strconv.Itoa(rand.Int())
+	olsConfig.SetLabels(labels)
+
+	if err := helper.GetClient().Update(ctx, &olsConfig); err != nil {
+		return err
+	}
+	return nil
+}
