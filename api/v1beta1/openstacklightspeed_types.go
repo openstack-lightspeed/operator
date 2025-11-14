@@ -67,6 +67,16 @@ type OpenStackLightspeedCore struct {
 	// +kubebuilder:validation:Optional
 	// MaxTokensForResponse defines the maximum number of tokens to be used for the response generation
 	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="openshift-marketplace"
+	// Namespace where the CatalogSource containing the OLS operator is located
+	CatalogSourceNamespace string `json:"catalogSourceNamespace"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="redhat-operators"
+	// Name of the CatalogSource that contains the OLS Operator
+	CatalogSourceName string `json:"catalogSourceName"`
 }
 
 // OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed

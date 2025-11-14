@@ -93,3 +93,33 @@ rules:
   verbs:
   - get
   - list
+  - watch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: manager-role
+  namespace: openstack-lightspeed
+rules:
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  verbs:
+  - create
+  - delete
+  - patch
+  - update
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - installplans
+  - subscriptions
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch

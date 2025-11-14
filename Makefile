@@ -146,7 +146,7 @@ build: manifests generate fmt vet ## Build manager binary.
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	source ./scripts/env.sh && go run ./cmd/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
@@ -217,18 +217,18 @@ undeploy: kustomize ## Undeploy controller from the K8s cluster specified in ~/.
 	$(KUSTOMIZE) build config/default | $(KUBECTL) delete --ignore-not-found=$(ignore-not-found) -f -
 
 # Deploy using the catalog image.
-.PHONY: catalog-deploy
-catalog-deploy: export OUTPUT_DIR = out
-catalog-deploy: ## Deploy using a catalog image.
+.PHONY: openstack-lightspeed-deploy
+openstack-lightspeed-deploy: export OUTPUT_DIR = out
+openstack-lightspeed-deploy: ## Deploy using a catalog image.
 	bash scripts/gen-catalog.sh $(CATALOG_IMG) $(CATALOG_NAME)
 	oc apply -f $(OUTPUT_DIR)/catalog
 	bash scripts/gen-rhosls.sh $(CATALOG_NAME) $(CATALOG_CHANNEL)
 	oc apply -f $(OUTPUT_DIR)/rhosls
 
 # Deploy using the catalog image.
-.PHONY: catalog-undeploy
-catalog-undeploy: export OUTPUT_DIR = out
-catalog-undeploy: ## Undeploy using a catalog image.
+.PHONY: openstack-lightspeed-undeploy
+openstack-lightspeed-undeploy: export OUTPUT_DIR = out
+openstack-lightspeed-undeploy: ## Undeploy using a catalog image.
 	find out/{catalog,rhosls} -name "*.yaml" -printf " -f %p" | xargs oc delete --ignore-not-found=true
 
 CATALOG_NAME ?= openstack-lightspeed-catalog
@@ -250,7 +250,7 @@ GOLANGCI_LINT = $(LOCALBIN)/golangci-lint
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.4.2
-CONTROLLER_TOOLS_VERSION ?= v0.15.0
+CONTROLLER_TOOLS_VERSION ?= v0.16.5
 ENVTEST_VERSION ?= release-0.18
 GOLANGCI_LINT_VERSION ?= v2.6.0
 

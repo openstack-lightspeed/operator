@@ -22,6 +22,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
+	"strconv"
 	"strings"
 	"time"
 
@@ -63,6 +65,51 @@ const (
 	OLSConfigName = "cluster"
 )
 
+// RemoveOLSConfig attempts to remove the OLSConfig custom resource if it exists
+// and is managed by the given OpenStackLightspeed instance. It first fetches the OLSConfig,
+// checks whether the current OpenStackLightspeed instance is the owner (via label check),
+// and if so, removes the finalizer and deletes the OLSConfig resource.
+// Returns (true, nil) if the OLSConfig is not found (indicating it has already been deleted).
+// Returns (true, nil) if the resource was deleted successfully, or (false, error) if any error occurs.
+func RemoveOLSConfig(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) (bool, error) {
+	olsConfig, err := GetOLSConfig(ctx, helper)
+	if err != nil && !k8s_errors.IsNotFound(err) {
+		return false, err
+	} else if err != nil && k8s_errors.IsNotFound(err) {
+		return true, nil
+	}
+
+	_, err = controllerutil.CreateOrPatch(ctx, helper.GetClient(), &olsConfig, func() error {
+		ownerLabel := olsConfig.GetLabels()[OpenStackLightspeedOwnerIDLabel]
+		isInstanceOwnedOLSConfig := ownerLabel == string(instance.GetObjectMeta().GetUID())
+
+		if ownerLabel == "" || !isInstanceOwnedOLSConfig {
+			helper.GetLogger().Info("Skipping OLSConfig deletion as it is not managed by the OpenStackLightspeed instance")
+			return nil
+		}
+
+		if ok := controllerutil.RemoveFinalizer(&olsConfig, helper.GetFinalizer()); !ok {
+			return fmt.Errorf("remove finalizer failed")
+		}
+
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+
+	err = helper.GetClient().Delete(ctx, &olsConfig)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
+}
+
 // GetOLSConfig returns OLSConfig if there is one present in the cluster.
 func GetOLSConfig(ctx context.Context, helper *common_helper.Helper) (uns.Unstructured, error) {
 	OLSConfigGVR := schema.GroupVersionResource{
@@ -85,35 +132,6 @@ func GetOLSConfig(ctx context.Context, helper *common_helper.Helper) (uns.Unstru
 	return uns.Unstructured{}, k8s_errors.NewNotFound(
 		schema.GroupResource{Group: "ols.openshifg.io", Resource: "olsconfigs"},
 		"OLSConfig")
-}
-
-// IsOLSOperatorInstalled checks whether OLS Operator is already running in the cluster.
-func IsOLSOperatorInstalled(ctx context.Context, helper *common_helper.Helper) (bool, error) {
-	csvGVR := schema.GroupVersionResource{
-		Group:    "operators.coreos.com",
-		Version:  "v1alpha1",
-		Resource: "clusterserviceversions",
-	}
-
-	csvList := &uns.UnstructuredList{}
-	csvList.SetGroupVersionKind(csvGVR.GroupVersion().WithKind("clusterserviceversion"))
-
-	listOpts := []client.ListOption{
-		client.InNamespace(""), // Retrieve from all namespaces
-	}
-
-	err := helper.GetClient().List(ctx, csvList, listOpts...)
-	if err != nil {
-		return false, err
-	}
-
-	for _, csv := range csvList.Items {
-		if strings.HasPrefix(csv.GetName(), "lightspeed-operator") {
-			return true, nil
-		}
-	}
-
-	return false, nil
 }
 
 // PatchOLSConfig patches OLSConfig with information from OpenStackLightspeed instance.
@@ -235,7 +253,7 @@ func IsOLSConfigReady(ctx context.Context, helper *common_helper.Helper) (bool, 
 	for _, OLSConfigCondition := range OLSConfigConditions {
 		for _, requiredConditionType := range requiredConditionTypes {
 			if OLSConfigCondition.Type == requiredConditionType && OLSConfigCondition.Status != metav1.ConditionTrue {
-				return false, nil
+				return false, OLSConfigPing(ctx, helper)
 			}
 		}
 	}
@@ -396,4 +414,58 @@ func requeueWaitingPod(helper *common_helper.Helper, instance *apiv1beta1.OpenSt
 	))
 	helper.GetLogger().Info(apiv1beta1.OpenStackLightspeedReadyMessage)
 	return "", ctrl.Result{RequeueAfter: 5 * time.Second}, nil
+}
+
+// IsOwnedBy returns true if 'object' is owned by 'owner' based on OwnerReference UID.
+func IsOwnedBy(object metav1.Object, owner metav1.Object) bool {
+	for _, ref := range object.GetOwnerReferences() {
+		if ref.UID == owner.GetUID() {
+			return true
+		}
+	}
+	return false
+}
+
+// GetRawClient returns a raw client that is not restricted to WATCH_NAMESPACE.
+// This is useful for operations that need to query resources across all namespaces
+// cluster wide.
+func GetRawClient(helper *common_helper.Helper) (client.Client, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	rawClient, err := client.New(cfg, client.Options{Scheme: helper.GetScheme()})
+	if err != nil {
+		return nil, err
+	}
+
+	return rawClient, nil
+}
+
+// OLSConfigPing adds a random label to the OLSConfig to trigger a reconciliation
+// by the OpenShift Lightspeed operator. This causes the operator to update the Status field.
+// Note: This is a workaround for a current limitation—when the OLS operator is installed
+// in the openstack-lightspeed namespace, it does not automatically update the OLSConfig
+// status as expected.
+func OLSConfigPing(ctx context.Context, helper *common_helper.Helper) error {
+	const randomLabelKey = "openstack-lightspeed/ping"
+
+	olsConfig, err := GetOLSConfig(ctx, helper)
+	if err != nil {
+		return err
+	}
+
+	labels := olsConfig.GetLabels()
+	if labels == nil {
+		labels = make(map[string]string)
+	}
+
+	labels[randomLabelKey] = strconv.Itoa(rand.Int())
+	olsConfig.SetLabels(labels)
+
+	if err := helper.GetClient().Update(ctx, &olsConfig); err != nil {
+		return err
+	}
+	return nil
 }
