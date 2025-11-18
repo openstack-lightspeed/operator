@@ -4,10 +4,10 @@ metadata:
   annotations:
     alm-examples: '[]'
     capabilities: Basic Install
-    operatorframework.io/suggested-namespace: openstack-lightspeed
+    operatorframework.io/suggested-namespace: openshift-lightspeed
     repository: https://github.com/openstack-lightspeed/operator
   name: openstack-lightspeed-operator.v0.0.0
-  namespace: openstack-lightspeed
+  namespace: openshift-lightspeed
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions: {}

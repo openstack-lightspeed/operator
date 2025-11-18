@@ -18,7 +18,7 @@ cat > "${DEST_DIR}/namespace.yaml" <<EOF
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: openstack-lightspeed
+  name: openshift-lightspeed
 EOF
 
 cat > "${DEST_DIR}/operator_group.yaml" <<EOF
@@ -26,10 +26,10 @@ apiVersion: operators.coreos.com/v1
 kind: OperatorGroup
 metadata:
   name: lightspeed-operator-group
-  namespace: openstack-lightspeed
+  namespace: openshift-lightspeed
 spec:
   targetNamespaces:
-  - openstack-lightspeed
+  - openshift-lightspeed
 EOF
 
 for i in $(seq 1 20); do
@@ -50,7 +50,7 @@ metadata:
   labels:
     operators.coreos.com/lightspeed-operator.openshift-lightspeed: ""
   name: openstack-lightspeed-operator
-  namespace: openstack-lightspeed
+  namespace: openshift-lightspeed
 spec:
   channel: ${CHANNEL}
   installPlanApproval: Automatic
