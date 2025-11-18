@@ -20,6 +20,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -54,7 +55,10 @@ func EnsureOLSOperatorInstalled(
 	}
 
 	if isUserInstalledOLSOperator {
-		return CheckOLSOperatorVersion(ctx, helper, instance)
+		return false, errors.New(
+			"detected an existing OpenShift Lightspeed operator installation. " +
+				"Please uninstall OpenShift Lightspeed operator and allow the " +
+				"OpenStack Lightspeed operator to manage its installation automatically")
 	}
 
 	OLSOperatorInstalled, err := InstallInstanceOwnedOLSOperator(ctx, helper, instance)
@@ -77,11 +81,6 @@ func InstallInstanceOwnedOLSOperator(
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
 ) (bool, error) {
-	olsVersion, err := GetRecommendedOLSVersion()
-	if err != nil {
-		return false, err
-	}
-
 	subscription := &operatorsv1alpha1.Subscription{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      GetOLSSubscriptionName(instance),
@@ -106,7 +105,11 @@ func InstallInstanceOwnedOLSOperator(
 			CatalogSource:          instance.Spec.CatalogSourceName,
 			CatalogSourceNamespace: instance.Spec.CatalogSourceNamespace,
 			Package:                OLSOperatorName,
-			StartingCSV:            fmt.Sprintf("%s.v%s", OLSOperatorName, olsVersion),
+		}
+
+		err := SetStartingCSV(subscription)
+		if err != nil {
+			return err
 		}
 
 		subscription.SetOwnerReferences(instanceOwnerReference)
@@ -177,15 +180,20 @@ func InstanceOwnedOLSOperatorComplete(
 
 // GetRecommendedOLSVersion returns the recommended version of the OpenShift
 // Lightspeed (OLS) operator to deploy. This version is obtained from the environment
-// variable "OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION". If the variable
-// is unset or empty, the function returns an error.
+// variable "OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION". If the variable is unset or empty,
+// an error is returned. If the value is "latest", an empty string and no error are returned.
+// This indicates the rest of the OLS installation code can install the latest version
+// of OLS operator since no specific version is set.
 func GetRecommendedOLSVersion() (string, error) {
 	version := os.Getenv("OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION")
-	if version != "" {
+	switch version {
+	case "":
+		return "", errors.New("environment variable OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION is not set")
+	case "latest":
+		return "", nil
+	default:
 		return version, nil
 	}
-
-	return "", fmt.Errorf("environment variable OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION is not set")
 }
 
 // GetOLSOperatorCSV - retrieves the ClusterServiceVersion (CSV) for the OpenShift Lightspeed operator
@@ -340,40 +348,25 @@ func ApproveOLSOperatorInstallPlan(
 	return false, nil
 }
 
-// CheckOLSOperatorVersion returns true if the installed OLS Operator's version matches
-// the recommended version for the currently installed OpenStack Lightspeed operator.
-func CheckOLSOperatorVersion(
-	ctx context.Context,
-	helper *common_helper.Helper,
-	instance *apiv1beta1.OpenStackLightspeed,
-) (bool, error) {
-	OLSOperatorCSV, err := GetOLSOperatorCSV(ctx, helper)
-	if err != nil {
-		return false, err
-	} else if OLSOperatorCSV == nil {
-		return false, nil
-	}
-
-	recommendedVersion, err := GetRecommendedOLSVersion()
-	if err != nil {
-		return false, err
-	}
-
-	installedVersion := OLSOperatorCSV.Spec.Version.String()
-	if installedVersion != recommendedVersion {
-		errMsg := ("detected an unsupported version of OpenShift Lightspeed in the cluster." +
-			"The recommended version is: %s. Please ensure that the installed version " +
-			"matches the recommended version or uninstall it (OpenStack Lightspeed " +
-			"will install the OpenShift Lightspeed operator automatically)")
-		return false, fmt.Errorf(errMsg, recommendedVersion)
-	}
-
-	return true, nil
-}
-
 // GetOLSSubscriptionName generates a unique subscription name for the OpenStack Lightspeed Operator
 // by appending the first 5 characters of the instance's UID. This reduces the likelihood of
 // naming collisions with existing subscriptions that may have been created manually by the user.
 func GetOLSSubscriptionName(instance *apiv1beta1.OpenStackLightspeed) string {
 	return fmt.Sprintf("%s-%s", OLSOperatorName, string(instance.GetUID())[:5])
+}
+
+// SetStartingCSV sets the StartingCSV field of the given Subscription based on
+// the recommended OLS operator version. If the recommended version is "",
+// StartingCSV is not set to allow OLM to select the latest compatible version.
+func SetStartingCSV(subscription *operatorsv1alpha1.Subscription) error {
+	recommendedVersion, err := GetRecommendedOLSVersion()
+	if err != nil {
+		return err
+	}
+
+	if recommendedVersion != "" {
+		subscription.Spec.StartingCSV = fmt.Sprintf("%s.v%s", OLSOperatorName, recommendedVersion)
+	}
+
+	return nil
 }

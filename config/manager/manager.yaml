@@ -67,7 +67,7 @@ spec:
         name: manager
         env:
           - name: "OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION"
-            value: "1.0.7"
+            value: "latest"
           - name: WATCH_NAMESPACE
             valueFrom:
               fieldRef:
