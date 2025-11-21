@@ -282,6 +282,17 @@ func UninstallInstanceOwnedOLSOperator(
 		return true, nil
 	}
 
+	// When the operator is installed via OLM, the OpenStack Lightspeed Subscription
+	// is also set as an owner of its InstallPlan, resulting in the InstallPlan having
+	// both the OLS Subscription and the OpenStackLightspeed resources as owners.
+	// When uninstalling the OLS operator, only the OLS Subscription owner reference is removed,
+	// which causes the InstallPlans to remain and accumulate over time. To avoid this,
+	// we explicitly attempt to delete the relevant InstallPlan to prevent leftovers.
+	_, err = DeleteOLSOperatorInstallPlan(ctx, helper, instance)
+	if err != nil {
+		return false, err
+	}
+
 	if err := helper.GetClient().Delete(ctx, OLSOperatorCSV); err != nil {
 		return false, err
 	}
@@ -289,63 +300,107 @@ func UninstallInstanceOwnedOLSOperator(
 	OLSOperatorCSV, err = GetOLSOperatorCSV(ctx, helper)
 	if err != nil {
 		return false, err
-	} else if OLSOperatorCSV == nil {
-		return true, nil
+	} else if OLSOperatorCSV != nil {
+		return false, nil
 	}
 
-	return false, nil
+	OLSInstallPlan, err := GetOLSOperatorInstallPlan(ctx, helper, instance)
+	if err != nil {
+		return false, err
+	} else if OLSInstallPlan != nil {
+		return false, nil
+	}
+
+	return true, nil
 }
 
-// ApproveOLSOperatorInstallPlan - checks for any pending, unapproved InstallPlans associated with the
-// OpenShift Lightspeed Operator (OLS operator) within the namespace of the provided OpenStackLightspeed instance,
-// and approves them. The function lists all InstallPlans in the instance's namespace, identifies those linked to
-// the OLS operator and not yet approved, and updates their status to approved. Returns true if a pending
-// InstallPlan is successfully approved. Returns false if there are no InstallPlans to be approved,
-// and returns false with an error if any occurs during the listing or approval process.
+// GetOLSOperatorInstallPlan returns the InstallPlan that was used to install
+// the OpenShift Lightspeed Operator (OLS Operator). It searches for an InstallPlan
+// whose ClusterServiceVersion name matches the OLS Operator prefix and the
+// recommended OLS version. If such an InstallPlan exists, it is returned; otherwise,
+// the function returns nil.
+func GetOLSOperatorInstallPlan(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) (*operatorsv1alpha1.InstallPlan, error) {
+	var installPlans operatorsv1alpha1.InstallPlanList
+	err := helper.GetClient().List(ctx, &installPlans, client.InNamespace(instance.Namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	recommendedOLSVersion, err := GetRecommendedOLSVersion()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, installPlan := range installPlans.Items {
+		var isOLSOperatorCSV bool
+		for _, csvName := range installPlan.Spec.ClusterServiceVersionNames {
+			if strings.HasPrefix(csvName, OLSOperatorName) && strings.HasSuffix(csvName, recommendedOLSVersion) {
+				isOLSOperatorCSV = true
+				break
+			}
+		}
+
+		if isOLSOperatorCSV {
+			return &installPlan, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// ApproveOLSOperatorInstallPlan approves the InstallPlan that is responsible for installing
+// the OpenShift Lightspeed Operator (OLS Operator) in the given OpenStackLightspeed instance's
+// namespace. It sets the Approved field to true and updates the InstallPlan resource in the cluster.
+// Returns true if the approval succeeds, false and an error otherwise.
 func ApproveOLSOperatorInstallPlan(
 	ctx context.Context,
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
 ) (bool, error) {
-	var installPlans operatorsv1alpha1.InstallPlanList
-	err := helper.GetClient().List(ctx, &installPlans, client.InNamespace(instance.Namespace))
+	installPlan, err := GetOLSOperatorInstallPlan(ctx, helper, instance)
+	if err != nil {
+		return false, err
+	} else if installPlan == nil {
+		return false, nil
+	}
+
+	installPlan.Spec.Approved = true
+	err = helper.GetClient().Update(ctx, installPlan)
 	if err != nil {
 		return false, err
 	}
 
-	recommendedOLSVersion, err := GetRecommendedOLSVersion()
+	return true, nil
+}
+
+// DeleteOLSOperatorInstallPlan deletes the InstallPlan associated with installing the
+// OpenShift Lightspeed Operator (OLS Operator) in the specified OpenStackLightspeed instance's
+// namespace. If the InstallPlan does not exist, the function returns true. It returns true
+// if the deletion succeeds or the InstallPlan was not found, and false with an error otherwise.
+func DeleteOLSOperatorInstallPlan(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) (bool, error) {
+	installPlan, err := GetOLSOperatorInstallPlan(ctx, helper, instance)
 	if err != nil {
 		return false, err
-	}
-
-	for _, installPlan := range installPlans.Items {
-		// Continue if the InstallPlan does not have any CSVs associated with it.
-		if len(installPlan.Spec.ClusterServiceVersionNames) == 0 {
-			continue
-		}
-
-		isOLSOperatorCSV := strings.HasPrefix(installPlan.Spec.ClusterServiceVersionNames[0], OLSOperatorName)
-		if !isOLSOperatorCSV {
-			continue
-		}
-
-		isCorrectVersion := strings.HasSuffix(installPlan.Spec.ClusterServiceVersionNames[0], recommendedOLSVersion)
-		if !isCorrectVersion {
-			continue
-		}
-
-		installPlan.Spec.Approved = true
-		err = helper.GetClient().Update(ctx, &installPlan)
-		if err != nil && k8s_errors.IsConflict(err) {
-			return false, nil
-		} else if err != nil {
-			return false, err
-		}
-
+	} else if installPlan == nil {
 		return true, nil
 	}
 
-	return false, nil
+	err = helper.GetClient().Delete(ctx, installPlan)
+	if err != nil && k8s_errors.IsNotFound(err) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 // GetOLSSubscriptionName generates a unique subscription name for the OpenStack Lightspeed Operator
