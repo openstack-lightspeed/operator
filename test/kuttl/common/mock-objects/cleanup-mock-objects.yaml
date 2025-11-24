@@ -1,0 +1,24 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: v1
+    kind: Pod
+    name: mock-llm-api-server-pod
+    namespace: openshift-lightspeed
+  - apiVersion: v1
+    kind: Service
+    name: mock-llm-api-server-pod
+    namespace: openshift-lightspeed
+  - apiVersion: v1
+    kind: ConfigMap
+    name: mock-llm-code
+    namespace: openshift-lightspeed
+  - apiVersion: v1
+    kind: Secret
+    name: openstack-lightspeed-apitoken
+    namespace: openshift-lightspeed
+  - apiVersion: v1
+    kind: ConfigMap
+    name: openstack-lightspeed-cert
+    namespace: openshift-lightspeed

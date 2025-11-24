@@ -220,3 +220,27 @@ Run all hooks manually:
 ```bash
 pre-commit run --all-files
 ```
+
+### Running KUTTL Tests
+
+KUTTL (KUbernetes Test TooL) tests validate the operator's behavior in a real
+OpenShift environment.
+
+Before running the tests ensure that:
+- `oc` CLI tool is available in your PATH and you can access an OpenShift cluster
+(e.g., deployed with `crc`) with it
+- The `openshift-lightspeed` namespace is empty or non-existing to prevent collisions
+
+Once you are ready you can run the KUTTL tests using:
+
+```bash
+make kuttl-test-run
+```
+
+**Important Notes:**
+- The tests use the `openshift-lightspeed` namespace to test in the exact namespace
+where the OLS operator is expected to operate.
+- The correct behavior of the OLS operator is not guaranteed outside of the
+`openshift-lightspeed` namespace.
+- Ensure the namespace is clean before running tests to avoid resource conflicts
+or test failures.
