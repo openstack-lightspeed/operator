@@ -189,21 +189,6 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		apiv1beta1.OpenShiftLightspeedOperatorReady,
 	)
 
-	// TODO(lpiwowar): Remove ResolveIndexID once OpenShift Lightspeed supports auto discovery of the indexID directly
-	// from the vector db image.
-	indexID, result, err := ResolveIndexID(ctx, helper, instance)
-	if err != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			apiv1beta1.OpenStackLightspeedReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			condition.DeploymentReadyErrorMessage,
-			err.Error()))
-		return result, err
-	} else if (result != ctrl.Result{}) {
-		return result, nil
-	}
-
 	// NOTE: We cannot consume the OLSConfig definition directly from the OLS operator's code due to
 	// a conflict in Go versions. When this comment was written, the min. required Go version for
 	// openstack-operator was 1.21 whereas OLS operator required at least Go version 1.23. Once the
@@ -232,7 +217,7 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 			return fmt.Errorf("OLSConfig is managed by different OpenStackLightspeed instance")
 		}
 
-		err = PatchOLSConfig(helper, instance, &olsConfig, indexID)
+		err = PatchOLSConfig(helper, instance, &olsConfig)
 		if err != nil {
 			return err
 		}

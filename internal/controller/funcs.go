@@ -18,25 +18,16 @@ package controller
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/rand"
 	"strconv"
-	"strings"
-	"time"
 
-	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
-	batchv1 "k8s.io/api/batch/v1"
-	"k8s.io/client-go/kubernetes"
-	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
-	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -139,7 +130,6 @@ func PatchOLSConfig(
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
 	olsConfig *uns.Unstructured,
-	indexID string,
 ) error {
 	// Patch the Providers section
 	providersPatch := []interface{}{
@@ -165,10 +155,12 @@ func PatchOLSConfig(
 	}
 
 	// Patch the RAG section
+	// NOTE(lucasagomes): We don't need indexID here because the tag on our RAG images
+	// already matches the indexID that the Vector DB used when it was built. OLS leverages
+	// that to set the right index.
 	openstackRAG := []interface{}{
 		map[string]interface{}{
 			"image":     instance.Spec.RAGImage,
-			"indexID":   indexID,
 			"indexPath": OpenStackLightspeedVectorDBPath,
 		},
 	}
@@ -259,161 +251,6 @@ func IsOLSConfigReady(ctx context.Context, helper *common_helper.Helper) (bool, 
 	}
 
 	return true, nil
-}
-
-// ResolveIndexID - returns index ID for the data stored in the vector DB container image. The discovery of the
-// index ID is done through spawning a pod with the rag-content image and looking at the INDEX_NAME env variable value.
-func ResolveIndexID(
-	ctx context.Context,
-	helper *common_helper.Helper,
-	instance *apiv1beta1.OpenStackLightspeed,
-) (string, ctrl.Result, error) {
-	err := createOLSJob(ctx, helper, instance)
-	if err != nil {
-		return "", ctrl.Result{}, err
-	}
-
-	podList := &corev1.PodList{}
-	labelSelector := client.MatchingLabels{"app": OpenStackLightspeedJobName}
-	if err := helper.GetClient().List(ctx, podList, client.InNamespace(instance.Namespace), labelSelector); err != nil {
-		return "", ctrl.Result{}, err
-	}
-
-	var OLSPod *corev1.Pod
-	for _, pod := range podList.Items {
-		if pod.Spec.Containers[0].Image == instance.Spec.RAGImage {
-			OLSPod = &pod
-			break
-		}
-	}
-	if OLSPod == nil {
-		return requeueWaitingPod(helper, instance)
-	}
-
-	switch OLSPod.Status.Phase {
-	case corev1.PodSucceeded:
-		indexName, err := extractEnvFromPodLogs(ctx, OLSPod, "INDEX_NAME")
-		if err != nil && k8s_errors.IsNotFound(err) {
-			return requeueWaitingPod(helper, instance)
-		}
-		return indexName, ctrl.Result{}, err
-	case corev1.PodFailed:
-		return "", ctrl.Result{}, fmt.Errorf("failed to start OpenStack Lightpseed RAG pod")
-	default:
-		return requeueWaitingPod(helper, instance)
-	}
-}
-
-// extractEnvFromPodLogs - discovers an environment variable value from the pod logs. The pod must be started using
-// createOLSJob.
-func extractEnvFromPodLogs(ctx context.Context, pod *corev1.Pod, envVarName string) (string, error) {
-	cfg, err := config.GetConfig()
-	if err != nil {
-		return "", err
-	}
-
-	k8sClient, err := kubernetes.NewForConfig(cfg)
-	if err != nil {
-		return "", err
-	}
-
-	req := k8sClient.CoreV1().Pods(pod.Namespace).GetLogs(pod.Name, &corev1.PodLogOptions{})
-	podLogs, err := req.Stream(ctx)
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		_ = podLogs.Close()
-	}()
-
-	buf := new(strings.Builder)
-	_, err = io.Copy(buf, podLogs)
-	if err != nil {
-		return "", fmt.Errorf("error in copying logs: %w", err)
-	}
-
-	logs := buf.String()
-	for _, envLine := range strings.Split(logs, "\n") {
-		parts := strings.Split(envLine, "=")
-		if len(parts) != 2 {
-			continue
-		}
-
-		if parts[0] == envVarName {
-			return parts[1], nil
-		}
-	}
-
-	return "", fmt.Errorf("env var not discovered: %s", envVarName)
-}
-
-// createOLSJob - starts OLS pod with entrypoint that lists environment variables after the start of the pod. It used
-// to discover INDEX_NAME value.
-func createOLSJob(
-	ctx context.Context,
-	helper *common_helper.Helper,
-	instance *apiv1beta1.OpenStackLightspeed,
-) error {
-	imageHash := sha256.Sum256([]byte(instance.Spec.RAGImage))
-	imageHashStr := fmt.Sprintf("%x", imageHash)
-	imageHashStr = imageHashStr[len(imageHashStr)-9:]
-	imageName := fmt.Sprintf("%s-%s", OpenStackLightspeedJobName, imageHashStr)
-
-	ttlSecondsAfterFinished := int32(600) // 10 mins
-	activeDeadlineSeconds := int64(1200)  // 20 mins
-	OLSPod := &batchv1.Job{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      imageName,
-			Namespace: instance.Namespace,
-			Labels: map[string]string{
-				"app": OpenStackLightspeedJobName,
-			},
-		},
-		Spec: batchv1.JobSpec{
-			TTLSecondsAfterFinished: &ttlSecondsAfterFinished,
-			ActiveDeadlineSeconds:   &activeDeadlineSeconds,
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"app": OpenStackLightspeedJobName,
-					},
-				},
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name:    "rag-content",
-							Image:   instance.Spec.RAGImage,
-							Command: []string{"/bin/sh", "-c"},
-							Args:    []string{"env"},
-						},
-					},
-					RestartPolicy: corev1.RestartPolicyNever,
-				},
-			},
-		},
-	}
-
-	if err := controllerutil.SetControllerReference(instance, OLSPod, helper.GetScheme()); err != nil {
-		return err
-	}
-
-	err := helper.GetClient().Create(ctx, OLSPod)
-	if err != nil && !k8s_errors.IsAlreadyExists(err) {
-		return err
-	}
-
-	return nil
-}
-
-func requeueWaitingPod(helper *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) (string, ctrl.Result, error) {
-	instance.Status.Conditions.Set(condition.FalseCondition(
-		apiv1beta1.OpenStackLightspeedReadyCondition,
-		condition.RequestedReason,
-		condition.SeverityInfo,
-		apiv1beta1.OpenStackLightspeedWaitingVectorDBMessage,
-	))
-	helper.GetLogger().Info(apiv1beta1.OpenStackLightspeedReadyMessage)
-	return "", ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 }
 
 // IsOwnedBy returns true if 'object' is owned by 'owner' based on OwnerReference UID.
