@@ -25,6 +25,21 @@ jobs:
 
     - name: Verify generated files are up to date and fail if anything changed
       run: |
+        # Preserve the .metadata.annotations.createdAt value from the CSV file,
+        # because running 'make bundle' updates this timestamp automatically.
+        # This can cause 'git diff --exit-code' to fail, even if there are
+        # no meaningful changes (i.e., the PR author already updated the bundle
+        # files correctly).
+        OLD_CREATED_AT=$(
+          grep 'createdAt:' bundle/manifests/openstack-lightspeed-operator.clusterserviceversion.yaml \
+            | sed 's/.*createdAt: "\(.*\)"/\1/'
+        )
+
         make generate
         make manifests
+        make bundle
+
+        sed -i "s/createdAt: .*/createdAt: \"${OLD_CREATED_AT}\"/" \
+          bundle/manifests/openstack-lightspeed-operator.clusterserviceversion.yaml
+
         git diff --exit-code
