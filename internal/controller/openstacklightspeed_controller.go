@@ -63,9 +63,6 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,namespace=openshift-lightspeed,verbs=update;patch;delete
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,namespace=openshift-lightspeed,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,namespace=openshift-lightspeed,verbs=get;list;watch;update;delete
-// +kubebuilder:rbac:groups=batch,resources=jobs,namespace=openshift-lightspeed,verbs=get;list;watch;create;delete
-// +kubebuilder:rbac:groups="",resources=pods,namespace=openshift-lightspeed,verbs=get;list;watch
-// +kubebuilder:rbac:groups="",resources=pods/log,namespace=openshift-lightspeed,verbs=get
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
