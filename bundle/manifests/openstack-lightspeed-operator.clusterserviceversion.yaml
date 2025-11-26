@@ -18,7 +18,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2025-11-25T14:57:47Z"
+    createdAt: "2025-11-26T13:17:58Z"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
@@ -211,30 +211,6 @@ spec:
           verbs:
           - create
           - patch
-        - apiGroups:
-          - ""
-          resources:
-          - pods
-          verbs:
-          - get
-          - list
-          - watch
-        - apiGroups:
-          - ""
-          resources:
-          - pods/log
-          verbs:
-          - get
-        - apiGroups:
-          - batch
-          resources:
-          - jobs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - watch
         - apiGroups:
           - operators.coreos.com
           resources:
