@@ -1,5 +1,0 @@
-dependencies:
-  - type: olm.package
-    value:
-      packageName: lightspeed-operator
-      version: ">=1.0.7"
