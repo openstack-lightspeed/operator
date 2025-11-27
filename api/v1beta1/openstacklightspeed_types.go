@@ -26,7 +26,7 @@ const (
 	// Container image fall-back defaults
 
 	// OpenStackLightspeedContainerImage is the fall-back container image for OpenStackLightspeed
-	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:os-docs-2024.2"
+	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:os-docs-2025.2"
 	MaxTokensForResponseDefault       = 2048
 )
 
