@@ -1,0 +1,28 @@
+---
+apiVersion: ols.openshift.io/v1alpha1
+kind: OLSConfig
+metadata:
+  name: cluster
+spec:
+  llm:
+    providers:
+      - name: openstack-lightspeed-provider
+        type: bam
+        url: http://mock-llm-api-server-pod-UPDATE:8000/v1
+        credentialsSecretRef:
+          name: openstack-lightspeed-apitoken-UPDATE
+        models:
+          - name: ibm-granite/granite-3.1-8b-instruct-UPDATE
+            parameters:
+              maxTokensForResponse: 2048
+  ols:
+    defaultProvider: openstack-lightspeed-provider
+    defaultModel: ibm-granite/granite-3.1-8b-instruct-UPDATE
+    byokRAGOnly: true
+    logLevel: INFO
+    additionalCAConfigMapRef:
+      name: openstack-lightspeed-cert-UPDATE
+    rag:
+      - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+        indexID: ""
+        indexPath: /rag/vector_db/os_product_docs

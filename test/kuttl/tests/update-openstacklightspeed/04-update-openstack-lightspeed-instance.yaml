@@ -1,0 +1,12 @@
+---
+apiVersion: lightspeed.openstack.org/v1beta1
+kind: OpenStackLightspeed
+metadata:
+  name: openstack-lightspeed
+  namespace: openshift-lightspeed
+spec:
+  llmEndpoint: http://mock-llm-api-server-pod-UPDATE:8000/v1
+  llmEndpointType: bam
+  llmCredentials: openstack-lightspeed-apitoken-UPDATE
+  modelName: ibm-granite/granite-3.1-8b-instruct-UPDATE
+  tlsCACertBundle: openstack-lightspeed-cert-UPDATE

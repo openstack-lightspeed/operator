@@ -1,0 +1,71 @@
+---
+apiVersion: ols.openshift.io/v1alpha1
+kind: OLSConfig
+metadata:
+  name: cluster
+spec:
+  llm:
+    providers:
+      - name: openstack-lightspeed-provider
+        type: openai
+        url: http://mock-llm-api-server-pod:8000/v1
+        credentialsSecretRef:
+          name: openstack-lightspeed-apitoken
+        models:
+          - name: ibm-granite/granite-3.1-8b-instruct
+            parameters:
+              maxTokensForResponse: 2048
+  ols:
+    defaultProvider: openstack-lightspeed-provider
+    defaultModel: ibm-granite/granite-3.1-8b-instruct
+    byokRAGOnly: true
+    logLevel: INFO
+    additionalCAConfigMapRef:
+      name: openstack-lightspeed-cert
+    rag:
+      - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+        indexID: ""
+        indexPath: /rag/vector_db/os_product_docs
+status:
+  conditions:
+    - type: ConsolePluginReady
+      status: "True"
+      reason: Reconciling
+    - type: CacheReady
+      status: "True"
+      reason: Reconciling
+    - type: ApiReady
+      status: "True"
+      reason: Reconciling
+    - type: Reconciled
+      status: "True"
+      reason: Reconciling
+---
+apiVersion: lightspeed.openstack.org/v1beta1
+kind: OpenStackLightspeed
+metadata:
+  name: openstack-lightspeed
+  namespace: openshift-lightspeed
+spec:
+  catalogSourceName: redhat-operators
+  catalogSourceNamespace: openshift-marketplace
+  llmCredentials: openstack-lightspeed-apitoken
+  llmEndpoint: http://mock-llm-api-server-pod:8000/v1
+  llmEndpointType: openai
+  modelName: ibm-granite/granite-3.1-8b-instruct
+  tlsCACertBundle: openstack-lightspeed-cert
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Ready
+      message: Setup complete
+    - type: OpenShiftLightspeedOperatorReady
+      status: "True"
+      reason: Ready
+      message: OpenShift Lightspeed operator is ready.
+    - type: OpenStackLightspeedReady
+      status: "True"
+      reason: Ready
+      message: OpenStack Lightspeed created
+
