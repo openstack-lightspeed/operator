@@ -1,0 +1,6 @@
+[
+  {
+    "name": "openstack-lightspeed-operator",
+    "image": "quay.io/openstack-lightspeed/operator:latest"
+  }
+]
