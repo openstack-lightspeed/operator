@@ -260,24 +260,6 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 	Log := r.GetLogger(ctx)
 	Log.Info("OpenStackLightspeed Reconciling Delete")
 
-	isRemoved, err := RemoveOLSConfig(ctx, helper, instance)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if !isRemoved {
-		Log.Info("OLSConfig removal in progress ...")
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
-	}
-
-	isUninstalled, err := UninstallInstanceOwnedOLSOperator(ctx, helper, instance)
-	if err != nil {
-		return ctrl.Result{}, err
-	} else if !isUninstalled {
-		Log.Info("OLS Operator uninstallation in progress ...")
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
-	}
-
-	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
-
 	Log.Info("OpenStackLightspeed Reconciling Delete completed")
 	return ctrl.Result{}, nil
 }
