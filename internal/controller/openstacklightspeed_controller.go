@@ -75,7 +75,7 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
-	Log.Info("OpenStackLightspeed Reconciling")
+	Log.Info("OpenStackLightspeed Reconciling :)")
 
 	instance := &apiv1beta1.OpenStackLightspeed{}
 	err := r.Get(ctx, req.NamespacedName, instance)
