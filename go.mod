@@ -1,6 +1,6 @@
 module github.com/openstack-lightspeed/operator
 
-go 1.22.0
+go 1.24.4
 
 require (
 	github.com/go-logr/logr v1.4.2
@@ -8,7 +8,6 @@ require (
 	github.com/onsi/gomega v1.34.1
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.5.0
 	github.com/operator-framework/api v0.27.0
-	k8s.io/api v0.31.0
 	k8s.io/apimachinery v0.31.0
 	k8s.io/client-go v0.31.0
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
@@ -89,6 +88,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/api v0.31.0 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
 	k8s.io/apiserver v0.31.0 // indirect
 	k8s.io/component-base v0.31.0 // indirect
