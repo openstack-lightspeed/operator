@@ -6,4 +6,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: openstacklightspeed-sample
 spec:
-  # TODO(user): Add fields here
+  llmEndpoint: http://llm_provider:11434/v1
+  llmEndpointType: openai
+  llmCredentials: openstack-lightspeed-apitoken
+  modelName: llama3.1:8b
+  tlsCACertBundle: openstack-lightspeed-certs
