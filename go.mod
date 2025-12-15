@@ -8,7 +8,7 @@ require (
 	github.com/onsi/gomega v1.38.3
 	github.com/openstack-k8s-operators/lib-common/modules/common v0.6.0
 	github.com/operator-framework/api v0.37.0
-	k8s.io/apimachinery v0.34.2
+	k8s.io/apimachinery v0.34.3
 	k8s.io/client-go v0.34.2
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	sigs.k8s.io/controller-runtime v0.22.4
