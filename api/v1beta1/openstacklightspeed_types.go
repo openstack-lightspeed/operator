@@ -77,6 +77,18 @@ type OpenStackLightspeedCore struct {
 	// +kubebuilder:default="redhat-operators"
 	// Name of the CatalogSource that contains the OLS Operator
 	CatalogSourceName string `json:"catalogSourceName"`
+
+	// +kubebuilder:validation:Optional
+	// Project ID for LLM providers that require it (e.g., WatsonX)
+	LLMProjectID string `json:"llmProjectID,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Deployment name for LLM providers that require it (e.g., Microsoft Azure OpenAI)
+	LLMDeploymentName string `json:"llmDeploymentName,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// LLM API Version for LLM providers that require it (e.g., Microsoft Azure OpenAI)
+	LLMAPIVersion string `json:"llmAPIVersion,omitempty"`
 }
 
 // OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed

@@ -15,6 +15,9 @@ spec:
           - name: ibm-granite/granite-3.1-8b-instruct-UPDATE
             parameters:
               maxTokensForResponse: 2048
+        projectID: test-project-id-UPDATE
+        deploymentName: test-deployment-name-UPDATE
+        apiVersion: v1.1
   ols:
     defaultProvider: openstack-lightspeed-provider
     defaultModel: ibm-granite/granite-3.1-8b-instruct-UPDATE

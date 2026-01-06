@@ -150,6 +150,26 @@ func PatchOLSConfig(
 			"url":  instance.Spec.LLMEndpoint,
 		},
 	}
+
+	provider := providersPatch[0].(map[string]interface{})
+	if instance.Spec.LLMProjectID != "" {
+		if err := uns.SetNestedField(provider, instance.Spec.LLMProjectID, "projectID"); err != nil {
+			return err
+		}
+	}
+
+	if instance.Spec.LLMDeploymentName != "" {
+		if err := uns.SetNestedField(provider, instance.Spec.LLMDeploymentName, "deploymentName"); err != nil {
+			return err
+		}
+	}
+
+	if instance.Spec.LLMAPIVersion != "" {
+		if err := uns.SetNestedField(provider, instance.Spec.LLMAPIVersion, "apiVersion"); err != nil {
+			return err
+		}
+	}
+
 	if err := uns.SetNestedSlice(olsConfig.Object, providersPatch, "spec", "llm", "providers"); err != nil {
 		return err
 	}
