@@ -30,16 +30,16 @@ status:
   conditions:
     - type: ConsolePluginReady
       status: "True"
-      reason: Reconciling
+      reason: Available
     - type: CacheReady
       status: "True"
-      reason: Reconciling
+      reason: Available
     - type: ApiReady
       status: "True"
-      reason: Reconciling
+      reason: Available
     - type: Reconciled
       status: "True"
-      reason: Reconciling
+      reason: Available
 ---
 apiVersion: lightspeed.openstack.org/v1beta1
 kind: OpenStackLightspeed
