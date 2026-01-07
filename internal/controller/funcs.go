@@ -27,6 +27,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
+	_ "embed"
+
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,6 +57,16 @@ const (
 	// OLSConfigName - OLS forbids other name for OLSConfig instance than OLSConfigName
 	OLSConfigName = "cluster"
 )
+
+// systemPrompt - system prompt tailored to the needs of OpenStack Lightspeed. It overwrites the default OLS prompt.
+//
+//go:embed system_prompt.txt
+var systemPrompt string
+
+// GetSystemPrompt returns the OpenStackLightspeed system prompt
+func GetSystemPrompt() string {
+	return systemPrompt
+}
 
 // RemoveOLSConfig attempts to remove the OLSConfig custom resource if it exists
 // and is managed by the given OpenStackLightspeed instance. It first fetches the OLSConfig,
@@ -224,6 +236,11 @@ func PatchOLSConfig(
 
 	// Disable or enable transcripts collection
 	err = uns.SetNestedField(olsConfig.Object, instance.Spec.TranscriptsDisabled, "spec", "ols", "userDataCollection", "transcriptsDisabled")
+	if err != nil {
+		return err
+	}
+
+	err = uns.SetNestedField(olsConfig.Object, GetSystemPrompt(), "spec", "ols", "querySystemPrompt")
 	if err != nil {
 		return err
 	}
