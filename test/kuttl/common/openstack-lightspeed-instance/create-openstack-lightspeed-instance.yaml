@@ -10,4 +10,6 @@ spec:
   llmCredentials: openstack-lightspeed-apitoken
   modelName: ibm-granite/granite-3.1-8b-instruct
   tlsCACertBundle: openstack-lightspeed-cert
-
+  llmProjectID: test-project-id
+  llmDeploymentName: test-deployment-name
+  llmAPIVersion: v1

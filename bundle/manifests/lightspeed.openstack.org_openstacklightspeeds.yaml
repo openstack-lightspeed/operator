@@ -58,10 +58,18 @@ spec:
                 description: Namespace where the CatalogSource containing the OLS
                   operator is located
                 type: string
+              llmAPIVersion:
+                description: LLM API Version for LLM providers that require it (e.g.,
+                  Microsoft Azure OpenAI)
+                type: string
               llmCredentials:
                 description: |-
                   Secret name containing API token for the LLMEndpoint. The key for the field
                   in the secret that holds the token should be "apitoken".
+                type: string
+              llmDeploymentName:
+                description: Deployment name for LLM providers that require it (e.g.,
+                  Microsoft Azure OpenAI)
                 type: string
               llmEndpoint:
                 description: URL pointing to the LLM
@@ -76,6 +84,9 @@ spec:
                 - rhoai_vllm
                 - rhelai_vllm
                 - fake_provider
+                type: string
+              llmProjectID:
+                description: Project ID for LLM providers that require it (e.g., WatsonX)
                 type: string
               maxTokensForResponse:
                 description: MaxTokensForResponse defines the maximum number of tokens

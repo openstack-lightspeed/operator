@@ -15,6 +15,9 @@ spec:
           - name: ibm-granite/granite-3.1-8b-instruct
             parameters:
               maxTokensForResponse: 2048
+        projectID: test-project-id
+        deploymentName: test-deployment-name
+        apiVersion: v1
   ols:
     defaultProvider: openstack-lightspeed-provider
     defaultModel: ibm-granite/granite-3.1-8b-instruct
@@ -54,6 +57,8 @@ spec:
   llmEndpointType: openai
   modelName: ibm-granite/granite-3.1-8b-instruct
   tlsCACertBundle: openstack-lightspeed-cert
+  llmProjectID: test-project-id
+  llmDeploymentName: test-deployment-name
 status:
   conditions:
     - type: Ready
