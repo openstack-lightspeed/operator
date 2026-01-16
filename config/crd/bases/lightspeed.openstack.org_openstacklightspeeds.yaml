@@ -58,6 +58,9 @@ spec:
                 description: Namespace where the CatalogSource containing the OLS
                   operator is located
                 type: string
+              feedbackDisabled:
+                description: Disable feedback collection
+                type: boolean
               llmAPIVersion:
                 description: LLM API Version for LLM providers that require it (e.g.,
                   Microsoft Azure OpenAI)
@@ -103,6 +106,9 @@ spec:
               tlsCACertBundle:
                 description: Configmap name containing a CA Certificates bundle
                 type: string
+              transcriptsDisabled:
+                description: Disable conversation transcripts collection
+                type: boolean
             required:
             - llmCredentials
             - llmEndpoint
