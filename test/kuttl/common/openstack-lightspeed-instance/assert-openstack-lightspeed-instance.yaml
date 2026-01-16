@@ -29,6 +29,9 @@ spec:
       - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
         indexID: ""
         indexPath: /rag/vector_db/os_product_docs
+    userDataCollection:
+      feedbackDisabled: false
+      transcriptsDisabled: false
 status:
   conditions:
     - type: ConsolePluginReady

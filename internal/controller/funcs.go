@@ -216,6 +216,18 @@ func PatchOLSConfig(
 		return err
 	}
 
+	// Disable or enable feedback collection
+	err = uns.SetNestedField(olsConfig.Object, instance.Spec.FeedbackDisabled, "spec", "ols", "userDataCollection", "feedbackDisabled")
+	if err != nil {
+		return err
+	}
+
+	// Disable or enable transcripts collection
+	err = uns.SetNestedField(olsConfig.Object, instance.Spec.TranscriptsDisabled, "spec", "ols", "userDataCollection", "transcriptsDisabled")
+	if err != nil {
+		return err
+	}
+
 	// Add info which OpenStackLightspeed instance owns the OLSConfig
 	labels := olsConfig.GetLabels()
 	updatedLabels := map[string]interface{}{

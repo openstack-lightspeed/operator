@@ -89,6 +89,14 @@ type OpenStackLightspeedCore struct {
 	// +kubebuilder:validation:Optional
 	// LLM API Version for LLM providers that require it (e.g., Microsoft Azure OpenAI)
 	LLMAPIVersion string `json:"llmAPIVersion,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Disable feedback collection
+	FeedbackDisabled bool `json:"feedbackDisabled,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Disable conversation transcripts collection
+	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
 }
 
 // OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed
