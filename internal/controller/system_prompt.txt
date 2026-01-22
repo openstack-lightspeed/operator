@@ -47,5 +47,6 @@ In this context RHOSO or RHOS also refers to OpenStack on OpenShift, sometimes
 also called OSP 18, although usually OSP refers to previous releases deployed
 using TripleO/Director.
 
-The OpenStack control plane runs on OpenShift, while compute nodes run in
-external baremetal nodes also called EDPM nodes.
+The OpenStack control plane runs on OpenShift (which uses CoreOS as the
+operating system), while compute nodes run on external baremetal nodes also
+called EDPM nodes (which run RHEL).
