@@ -63,6 +63,7 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,namespace=openshift-lightspeed,verbs=update;patch;delete
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,namespace=openshift-lightspeed,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,namespace=openshift-lightspeed,verbs=get;list;watch;update;delete
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -94,6 +95,9 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		r.Scheme,
 		Log,
 	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 
 	// Save a copy of the conditions so that we can restore the LastTransitionTime
 	// when a condition's state doesn't change.
@@ -186,6 +190,9 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		apiv1beta1.OpenShiftLightspeedOperatorReady,
 	)
 
+	// OCP Version Detection and Resolution
+	r.resolveOCPVersion(ctx, helper, instance)
+
 	// NOTE: We cannot consume the OLSConfig definition directly from the OLS operator's code due to
 	// a conflict in Go versions. When this comment was written, the min. required Go version for
 	// openstack-operator was 1.21 whereas OLS operator required at least Go version 1.23. Once the
@@ -214,7 +221,7 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 			return fmt.Errorf("OLSConfig is managed by different OpenStackLightspeed instance")
 		}
 
-		err = PatchOLSConfig(helper, instance, &olsConfig)
+		err = PatchOLSConfig(helper, instance, &olsConfig, instance.Status.ActiveOCPVersion)
 		if err != nil {
 			return err
 		}
@@ -249,6 +256,97 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	Log.Info("OpenStackLightspeed Reconciled successfully")
 	return ctrl.Result{}, nil
+}
+
+// resolveOCPVersion detects and resolves the OCP version to use for RAG configuration.
+// Returns the active OCP version to use (or empty string if OCP RAG is disabled).
+func (r *OpenStackLightspeedReconciler) resolveOCPVersion(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) string {
+	Log := helper.GetLogger()
+
+	// If OCP RAG is disabled, return empty string
+	if !instance.Spec.EnableOCPRAG {
+		instance.Status.Conditions.Remove(apiv1beta1.OCPVersionCondition)
+		instance.Status.DetectedOCPVersion = ""
+		instance.Status.ActiveOCPVersion = ""
+		instance.Status.OCPVersionFallback = false
+		return ""
+	}
+
+	// Step 1: Detect cluster version
+	detectedVersion, err := DetectOCPVersion(ctx, helper)
+	instance.Status.DetectedOCPVersion = detectedVersion
+
+	if err != nil {
+		Log.Info("Failed to detect OCP version, disabling OCP RAG", "error", err)
+		cond := condition.FalseCondition(
+			apiv1beta1.OCPVersionCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			apiv1beta1.OCPVersionDetectionFailed,
+		)
+		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPVersionDetectionFailed, err.Error())
+		instance.Status.Conditions.Set(cond)
+		instance.Status.ActiveOCPVersion = ""
+		instance.Status.OCPVersionFallback = false
+		return ""
+	}
+
+	Log.Info("Detected OCP cluster version", "version", detectedVersion)
+
+	// Step 2: Resolve which version to use (with override and fallback)
+	activeVersion, isFallback, err := ResolveOCPVersion(
+		detectedVersion,
+		instance.Spec.OCPVersionOverride,
+		instance.Spec.EnableOCPRAG,
+	)
+
+	if err != nil {
+		// Invalid override
+		Log.Error(err, "Invalid OCP version configuration")
+		cond := condition.FalseCondition(
+			apiv1beta1.OCPVersionCondition,
+			condition.ErrorReason,
+			condition.SeverityError,
+			apiv1beta1.OCPVersionOverrideInvalid,
+		)
+		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPVersionOverrideInvalid, err.Error())
+		instance.Status.Conditions.Set(cond)
+		instance.Status.ActiveOCPVersion = ""
+		instance.Status.OCPVersionFallback = false
+		return ""
+	}
+
+	// Step 3: Update status and conditions based on resolution
+	instance.Status.ActiveOCPVersion = activeVersion
+	instance.Status.OCPVersionFallback = isFallback
+
+	if isFallback {
+		// Using 'latest' as fallback - set warning
+		Log.Info("Using 'latest' OCP documentation as fallback",
+			"detectedVersion", detectedVersion,
+			"supportedVersions", SupportedOCPVersions)
+
+		cond := condition.TrueCondition(
+			apiv1beta1.OCPVersionCondition,
+			apiv1beta1.OCPVersionFallback,
+		)
+		cond.Message = fmt.Sprintf("Cluster version %s is not explicitly supported. Using 'latest' OCP documentation. Supported versions: %v",
+			detectedVersion, SupportedOCPVersions)
+		instance.Status.Conditions.Set(cond)
+	} else {
+		// Successfully using a supported version
+		Log.Info("Using OCP RAG documentation", "version", activeVersion)
+		instance.Status.Conditions.MarkTrue(
+			apiv1beta1.OCPVersionCondition,
+			apiv1beta1.OCPVersionDetected,
+		)
+	}
+
+	return activeVersion
 }
 
 // reconcileDelete reconciles the deletion of OpenStackLightspeed instance

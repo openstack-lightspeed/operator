@@ -26,6 +26,9 @@ const (
 	// OpenShift Lightspeed Operator Status=True condition which indicates if OpenShift Lightspeed is installed and
 	// operational and it can be used by OpenStack Lihgtspeed operator.
 	OpenShiftLightspeedOperatorReadyCondition condition.Type = "OpenShiftLightspeedOperatorReady"
+
+	// OCPVersionCondition Status=True condition which indicates OCP version detection and resolution
+	OCPVersionCondition condition.Type = "OCPVersionResolved"
 )
 
 // Common Messages used by API objects.
@@ -44,4 +47,16 @@ const (
 
 	// OpenShiftLigthspeedOperatorReady
 	OpenShiftLightspeedOperatorReady = "OpenShift Lightspeed operator is ready."
+
+	// OCPVersionDetected message when OCP version is detected and resolved successfully
+	OCPVersionDetected = "OCP version detected and resolved successfully"
+
+	// OCPVersionFallback message when using 'latest' OCP documentation as fallback
+	OCPVersionFallback = "Using 'latest' OCP documentation as fallback for unsupported cluster version"
+
+	// OCPVersionOverrideInvalid message when OCP version override is invalid
+	OCPVersionOverrideInvalid = "OCP version override is invalid"
+
+	// OCPVersionDetectionFailed message when OCP version detection fails
+	OCPVersionDetectionFailed = "Failed to detect OCP cluster version"
 )
