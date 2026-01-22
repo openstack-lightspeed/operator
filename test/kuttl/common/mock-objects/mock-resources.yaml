@@ -13,7 +13,6 @@ stringData:
 ---
 apiVersion: v1
 kind: ConfigMap
-type: Opaque
 metadata:
   name: openstack-lightspeed-cert
   namespace: openshift-lightspeed
@@ -51,48 +50,10 @@ data:
 ##############################################################################
 ---
 apiVersion: v1
-kind: Pod
-metadata:
-  name: mock-llm-api-server-pod
-  labels:
-    app: mock-llm-api-server-pod
-spec:
-  containers:
-    - name: mock-llm-api-server
-      image: registry.redhat.io/ubi8/python-311:latest
-      ports:
-        - containerPort: 8000
-      volumeMounts:
-        - name: app-code
-          mountPath: /app
-      workingDir: /app
-      command:
-        - sh
-        - -c
-        - |
-          pip install "fastapi[standard]" && \
-          uvicorn app:app --host 0.0.0.0 --port 8000
-  volumes:
-    - name: app-code
-      configMap:
-        name: mock-llm-code
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: mock-llm-api-server-pod
-spec:
-  selector:
-    app: mock-llm-api-server-pod
-  ports:
-    - protocol: TCP
-      port: 8000
-      targetPort: 8000
----
-apiVersion: v1
 kind: ConfigMap
 metadata:
   name: mock-llm-code
+  namespace: openshift-lightspeed
 data:
   app.py: |
     from fastapi import FastAPI, Request
@@ -132,4 +93,57 @@ data:
             }
         }
         return JSONResponse(content=response)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mock-llm-api-server-pod
+  namespace: openshift-lightspeed
+spec:
+  selector:
+    app: mock-llm-api-server-pod
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mock-llm-api-server-pod
+  namespace: openshift-lightspeed
+  labels:
+    app: mock-llm-api-server-pod
+spec:
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+  containers:
+    - name: mock-llm-api-server
+      image: registry.redhat.io/ubi8/python-311:latest
+      ports:
+        - containerPort: 8000
+      securityContext:
+        allowPrivilegeEscalation: false
+        runAsNonRoot: true
+        capabilities:
+          drop:
+            - ALL
+        seccompProfile:
+          type: RuntimeDefault
+      volumeMounts:
+        - name: app-code
+          mountPath: /app
+      workingDir: /app
+      command:
+        - sh
+        - -c
+        - |
+          pip install "fastapi[standard]" && \
+          uvicorn app:app --host 0.0.0.0 --port 8000
+  volumes:
+    - name: app-code
+      configMap:
+        name: mock-llm-code
 

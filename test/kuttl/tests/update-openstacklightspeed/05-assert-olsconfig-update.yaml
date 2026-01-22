@@ -32,3 +32,93 @@ spec:
     userDataCollection:
       feedbackDisabled: true
       transcriptsDisabled: true
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 300
+commands:
+  - script: |
+      # Wait for OLSConfig to be updated with new values
+      echo "Waiting for OLSConfig to be updated..."
+      
+      for i in $(seq 1 60); do
+        PROVIDER_TYPE=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].type}' 2>/dev/null || echo "")
+        PROVIDER_URL=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].url}' 2>/dev/null || echo "")
+        
+        if [ "$PROVIDER_TYPE" = "bam" ] && [ "$PROVIDER_URL" = "http://mock-llm-api-server-pod-UPDATE:8000/v1" ]; then
+          echo "OLSConfig has been updated!"
+          break
+        fi
+        
+        echo "Waiting for OLSConfig update... (attempt $i/60)"
+        sleep 5
+      done
+      
+      # Verify updated OLSConfig spec
+      PROVIDER_TYPE=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].type}')
+      if [ "$PROVIDER_TYPE" != "bam" ]; then
+        echo "ERROR: Provider type mismatch. Expected: bam, Got: $PROVIDER_TYPE"
+        exit 1
+      fi
+      
+      PROVIDER_URL=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].url}')
+      if [ "$PROVIDER_URL" != "http://mock-llm-api-server-pod-UPDATE:8000/v1" ]; then
+        echo "ERROR: Provider URL mismatch. Expected: http://mock-llm-api-server-pod-UPDATE:8000/v1, Got: $PROVIDER_URL"
+        exit 1
+      fi
+      
+      CREDS_REF=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].credentialsSecretRef.name}')
+      if [ "$CREDS_REF" != "openstack-lightspeed-apitoken-UPDATE" ]; then
+        echo "ERROR: Credentials ref mismatch. Expected: openstack-lightspeed-apitoken-UPDATE, Got: $CREDS_REF"
+        exit 1
+      fi
+      
+      MODEL_NAME=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].models[0].name}')
+      if [ "$MODEL_NAME" != "ibm-granite/granite-3.1-8b-instruct-UPDATE" ]; then
+        echo "ERROR: Model name mismatch. Expected: ibm-granite/granite-3.1-8b-instruct-UPDATE, Got: $MODEL_NAME"
+        exit 1
+      fi
+      
+      DEFAULT_MODEL=$(kubectl get olsconfig cluster -o jsonpath='{.spec.ols.defaultModel}')
+      if [ "$DEFAULT_MODEL" != "ibm-granite/granite-3.1-8b-instruct-UPDATE" ]; then
+        echo "ERROR: Default model mismatch. Expected: ibm-granite/granite-3.1-8b-instruct-UPDATE, Got: $DEFAULT_MODEL"
+        exit 1
+      fi
+      
+      CA_CERT_REF=$(kubectl get olsconfig cluster -o jsonpath='{.spec.ols.additionalCAConfigMapRef.name}')
+      if [ "$CA_CERT_REF" != "openstack-lightspeed-cert-UPDATE" ]; then
+        echo "ERROR: CA cert ref mismatch. Expected: openstack-lightspeed-cert-UPDATE, Got: $CA_CERT_REF"
+        exit 1
+      fi
+      
+      PROJECT_ID=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].projectID}')
+      if [ "$PROJECT_ID" != "test-project-id-UPDATE" ]; then
+        echo "ERROR: Project ID mismatch. Expected: test-project-id-UPDATE, Got: $PROJECT_ID"
+        exit 1
+      fi
+      
+      DEPLOYMENT_NAME=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].deploymentName}')
+      if [ "$DEPLOYMENT_NAME" != "test-deployment-name-UPDATE" ]; then
+        echo "ERROR: Deployment name mismatch. Expected: test-deployment-name-UPDATE, Got: $DEPLOYMENT_NAME"
+        exit 1
+      fi
+      
+      API_VERSION=$(kubectl get olsconfig cluster -o jsonpath='{.spec.llm.providers[0].apiVersion}')
+      if [ "$API_VERSION" != "v1.1" ]; then
+        echo "ERROR: API version mismatch. Expected: v1.1, Got: $API_VERSION"
+        exit 1
+      fi
+      
+      FEEDBACK_DISABLED=$(kubectl get olsconfig cluster -o jsonpath='{.spec.ols.userDataCollection.feedbackDisabled}')
+      if [ "$FEEDBACK_DISABLED" != "true" ]; then
+        echo "ERROR: feedbackDisabled mismatch. Expected: true, Got: $FEEDBACK_DISABLED"
+        exit 1
+      fi
+      
+      TRANSCRIPTS_DISABLED=$(kubectl get olsconfig cluster -o jsonpath='{.spec.ols.userDataCollection.transcriptsDisabled}')
+      if [ "$TRANSCRIPTS_DISABLED" != "true" ]; then
+        echo "ERROR: transcriptsDisabled mismatch. Expected: true, Got: $TRANSCRIPTS_DISABLED"
+        exit 1
+      fi
+      
+      echo "OLSConfig update verification passed!"
