@@ -137,11 +137,38 @@ func GetOLSConfig(ctx context.Context, helper *common_helper.Helper) (uns.Unstru
 		"OLSConfig")
 }
 
+// BuildRAGConfigs builds the RAG configuration array with priorities.
+// OpenStack RAG is always included with priority 1.
+// OCP RAG is added with priority 2 if ocpVersion is provided.
+func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []map[string]interface{} {
+	rags := []map[string]interface{}{
+		// OpenStack RAG - Priority 1
+		{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": OpenStackLightspeedVectorDBPath,
+			"priority":  1,
+		},
+	}
+
+	// Add OCP RAG if enabled
+	if ocpVersion != "" {
+		rags = append(rags, map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": GetOCPVectorDBPath(ocpVersion),
+			"indexID":   GetOCPIndexName(ocpVersion),
+			"priority":  2,
+		})
+	}
+
+	return rags
+}
+
 // PatchOLSConfig patches OLSConfig with information from OpenStackLightspeed instance.
 func PatchOLSConfig(
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
 	olsConfig *uns.Unstructured,
+	ocpVersion string,
 ) error {
 	// Patch the Providers section
 	providersPatch := []interface{}{
@@ -187,17 +214,14 @@ func PatchOLSConfig(
 	}
 
 	// Patch the RAG section
-	// NOTE(lucasagomes): We don't need indexID here because the tag on our RAG images
-	// already matches the indexID that the Vector DB used when it was built. OLS leverages
-	// that to set the right index.
-	openstackRAG := []interface{}{
-		map[string]interface{}{
-			"image":     instance.Spec.RAGImage,
-			"indexPath": OpenStackLightspeedVectorDBPath,
-		},
+	// Build RAG array with priorities using BuildRAGConfigs
+	ragConfigs := BuildRAGConfigs(instance, ocpVersion)
+	ragSlice := make([]interface{}, len(ragConfigs))
+	for i, rag := range ragConfigs {
+		ragSlice[i] = rag
 	}
 
-	if err := uns.SetNestedSlice(olsConfig.Object, openstackRAG, "spec", "ols", "rag"); err != nil {
+	if err := uns.SetNestedSlice(olsConfig.Object, ragSlice, "spec", "ols", "rag"); err != nil {
 		return err
 	}
 
