@@ -15,4 +15,4 @@ spec:
   llmAPIVersion: v1.1
   feedbackDisabled: true
   transcriptsDisabled: true
-  enableOCPRAG: true
+  enableOCPRAG: false

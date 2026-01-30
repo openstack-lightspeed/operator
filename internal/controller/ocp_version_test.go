@@ -22,6 +22,11 @@ import (
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 )
 
+const (
+	// testRAGImage is the test image used in unit tests
+	testRAGImage = "test-image:latest"
+)
+
 func TestGetOCPIndexName(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -187,13 +192,13 @@ func TestResolveOCPVersion(t *testing.T) {
 			shouldError:      false,
 		},
 		{
-			name:             "Invalid override",
+			name:             "Custom override (any version allowed)",
 			detected:         "4.16",
 			override:         "4.99",
 			enableOCPRAG:     true,
-			expectedVer:      "",
+			expectedVer:      "4.99",
 			expectedFallback: false,
-			shouldError:      true,
+			shouldError:      false,
 		},
 		{
 			name:             "No version detected",
@@ -229,10 +234,10 @@ func TestResolveOCPVersion(t *testing.T) {
 }
 
 func TestBuildRAGConfigs(t *testing.T) {
-	t.Run("OCP RAG disabled", func(t *testing.T) {
+	t.Run("OCP RAG disabled (empty version)", func(t *testing.T) {
 		instance := &apiv1beta1.OpenStackLightspeed{
 			Spec: apiv1beta1.OpenStackLightspeedSpec{
-				RAGImage: "test-image:latest",
+				RAGImage: testRAGImage,
 			},
 		}
 
@@ -242,19 +247,30 @@ func TestBuildRAGConfigs(t *testing.T) {
 			t.Errorf("Expected 1 RAG config, got %d", len(configs))
 		}
 
-		if configs[0]["priority"] != 1 {
-			t.Errorf("Expected priority 1, got %v", configs[0]["priority"])
+		// Type assert to map[string]interface{}
+		firstConfig, ok := configs[0].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected config to be map[string]interface{}, got %T", configs[0])
 		}
 
-		if configs[0]["image"] != "test-image:latest" {
-			t.Errorf("Expected image test-image:latest, got %v", configs[0]["image"])
+		if firstConfig["image"] != testRAGImage {
+			t.Errorf("Expected image test-image:latest, got %v", firstConfig["image"])
+		}
+
+		if firstConfig["indexPath"] != OpenStackLightspeedVectorDBPath {
+			t.Errorf("Expected indexPath %s, got %v", OpenStackLightspeedVectorDBPath, firstConfig["indexPath"])
+		}
+
+		// Verify priority field is NOT present
+		if _, hasPriority := firstConfig["priority"]; hasPriority {
+			t.Errorf("Expected no priority field, but it was present")
 		}
 	})
 
 	t.Run("OCP RAG enabled", func(t *testing.T) {
 		instance := &apiv1beta1.OpenStackLightspeed{
 			Spec: apiv1beta1.OpenStackLightspeedSpec{
-				RAGImage: "test-image:latest",
+				RAGImage: testRAGImage,
 			},
 		}
 
@@ -264,24 +280,90 @@ func TestBuildRAGConfigs(t *testing.T) {
 			t.Errorf("Expected 2 RAG configs, got %d", len(configs))
 		}
 
-		// Check OpenStack RAG (priority 1)
-		if configs[0]["priority"] != 1 {
-			t.Errorf("First config priority = %v, want 1", configs[0]["priority"])
+		// Check OpenStack RAG (first config)
+		osConfig, ok := configs[0].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected first config to be map[string]interface{}, got %T", configs[0])
 		}
 
-		// Check OCP RAG (priority 2)
-		if configs[1]["priority"] != 2 {
-			t.Errorf("Second config priority = %v, want 2", configs[1]["priority"])
+		if osConfig["image"] != testRAGImage {
+			t.Errorf("OpenStack RAG image = %v, want test-image:latest", osConfig["image"])
 		}
 
-		ocpPath := configs[1]["indexPath"].(string)
+		if osConfig["indexPath"] != OpenStackLightspeedVectorDBPath {
+			t.Errorf("OpenStack RAG indexPath = %v, want %s", osConfig["indexPath"], OpenStackLightspeedVectorDBPath)
+		}
+
+		// Verify priority field is NOT present in OpenStack config
+		if _, hasPriority := osConfig["priority"]; hasPriority {
+			t.Errorf("Expected no priority field in OpenStack config, but it was present")
+		}
+
+		// Check OCP RAG (second config)
+		ocpConfig, ok := configs[1].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected second config to be map[string]interface{}, got %T", configs[1])
+		}
+
+		if ocpConfig["image"] != testRAGImage {
+			t.Errorf("OCP RAG image = %v, want test-image:latest", ocpConfig["image"])
+		}
+
+		ocpPath, ok := ocpConfig["indexPath"].(string)
+		if !ok {
+			t.Fatalf("Expected indexPath to be string, got %T", ocpConfig["indexPath"])
+		}
 		if ocpPath != "/rag/ocp_vector_db/ocp-4.16" {
 			t.Errorf("OCP indexPath = %s, want /rag/ocp_vector_db/ocp-4.16", ocpPath)
 		}
 
-		ocpIndexID := configs[1]["indexID"].(string)
+		ocpIndexID, ok := ocpConfig["indexID"].(string)
+		if !ok {
+			t.Fatalf("Expected indexID to be string, got %T", ocpConfig["indexID"])
+		}
 		if ocpIndexID != "ocp-product-docs-4_16" {
 			t.Errorf("OCP indexID = %s, want ocp-product-docs-4_16", ocpIndexID)
+		}
+
+		// Verify priority field is NOT present in OCP config
+		if _, hasPriority := ocpConfig["priority"]; hasPriority {
+			t.Errorf("Expected no priority field in OCP config, but it was present")
+		}
+	})
+
+	t.Run("OCP RAG with latest version", func(t *testing.T) {
+		instance := &apiv1beta1.OpenStackLightspeed{
+			Spec: apiv1beta1.OpenStackLightspeedSpec{
+				RAGImage: testRAGImage,
+			},
+		}
+
+		configs := BuildRAGConfigs(instance, "latest")
+
+		if len(configs) != 2 {
+			t.Errorf("Expected 2 RAG configs, got %d", len(configs))
+		}
+
+		// Check OCP RAG with latest version
+		ocpConfig, ok := configs[1].(map[string]interface{})
+		if !ok {
+			t.Fatalf("Expected second config to be map[string]interface{}, got %T", configs[1])
+		}
+
+		ocpPath, ok := ocpConfig["indexPath"].(string)
+		if !ok {
+			t.Fatalf("Expected indexPath to be string, got %T", ocpConfig["indexPath"])
+		}
+		if ocpPath != "/rag/ocp_vector_db/ocp-latest" {
+			t.Errorf("OCP indexPath = %s, want /rag/ocp_vector_db/ocp-latest", ocpPath)
+		}
+
+		ocpIndexID, ok := ocpConfig["indexID"].(string)
+		if !ok {
+			t.Fatalf("Expected indexID to be string, got %T", ocpConfig["indexID"])
+		}
+		if ocpIndexID != "ocp-product-docs-latest" {
+			t.Errorf("OCP indexID = %s, want ocp-product-docs-latest", ocpIndexID)
 		}
 	})
 }

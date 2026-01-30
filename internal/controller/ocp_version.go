@@ -66,9 +66,16 @@ func DetectOCPVersion(ctx context.Context, helper *common_helper.Helper) (string
 	}
 
 	// Extract version from status.desired.version
+	// NOTE: We intentionally use desired.version rather than history[0].version because:
+	// - During OCP upgrades, desired.version reflects the target version
+	// - Users troubleshooting upgrade issues need docs for the NEW version
+	// - This provides proactive access to relevant documentation
 	version, found, err := uns.NestedString(clusterVersion.Object, "status", "desired", "version")
-	if !found || err != nil {
+	if err != nil {
 		return "", fmt.Errorf("failed to extract version from ClusterVersion: %w", err)
+	}
+	if !found {
+		return "", fmt.Errorf("version field not found in ClusterVersion status.desired.version")
 	}
 
 	// Parse version to get major.minor (e.g., "4.15.0" -> "4.15")
@@ -139,12 +146,7 @@ func ResolveOCPVersion(detectedVersion, overrideVersion string, enableOCPRAG boo
 
 	// Use override if provided
 	if overrideVersion != "" {
-		// Check if override is a supported version
-		if IsSupportedOCPVersion(overrideVersion) {
-			return overrideVersion, false, nil
-		}
-		return "", false, fmt.Errorf("override version %s is not supported, must be one of: %v",
-			overrideVersion, SupportedOCPVersions)
+		return overrideVersion, false, nil
 	}
 
 	// Use detected version

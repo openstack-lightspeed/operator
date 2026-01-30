@@ -137,16 +137,15 @@ func GetOLSConfig(ctx context.Context, helper *common_helper.Helper) (uns.Unstru
 		"OLSConfig")
 }
 
-// BuildRAGConfigs builds the RAG configuration array with priorities.
-// OpenStack RAG is always included with priority 1.
-// OCP RAG is added with priority 2 if ocpVersion is provided.
-func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []map[string]interface{} {
-	rags := []map[string]interface{}{
-		// OpenStack RAG - Priority 1
-		{
+// BuildRAGConfigs builds the RAG configuration array.
+// OpenStack RAG is always included first.
+// OCP RAG is added if ocpVersion is provided.
+func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []interface{} {
+	rags := []interface{}{
+		// OpenStack RAG
+		map[string]interface{}{
 			"image":     instance.Spec.RAGImage,
 			"indexPath": OpenStackLightspeedVectorDBPath,
-			"priority":  1,
 		},
 	}
 
@@ -156,7 +155,6 @@ func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string
 			"image":     instance.Spec.RAGImage,
 			"indexPath": GetOCPVectorDBPath(ocpVersion),
 			"indexID":   GetOCPIndexName(ocpVersion),
-			"priority":  2,
 		})
 	}
 
@@ -168,7 +166,6 @@ func PatchOLSConfig(
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
 	olsConfig *uns.Unstructured,
-	ocpVersion string,
 ) error {
 	// Patch the Providers section
 	providersPatch := []interface{}{
@@ -215,13 +212,9 @@ func PatchOLSConfig(
 
 	// Patch the RAG section
 	// Build RAG array with priorities using BuildRAGConfigs
-	ragConfigs := BuildRAGConfigs(instance, ocpVersion)
-	ragSlice := make([]interface{}, len(ragConfigs))
-	for i, rag := range ragConfigs {
-		ragSlice[i] = rag
-	}
+	ragConfigs := BuildRAGConfigs(instance, instance.Status.ActiveOCPRAGVersion)
 
-	if err := uns.SetNestedSlice(olsConfig.Object, ragSlice, "spec", "ols", "rag"); err != nil {
+	if err := uns.SetNestedSlice(olsConfig.Object, ragConfigs, "spec", "ols", "rag"); err != nil {
 		return err
 	}
 

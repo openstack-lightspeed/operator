@@ -17,24 +17,9 @@ metadata:
   namespace: openshift-lightspeed
 ---
 apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: mock-llm-code
-  namespace: openshift-lightspeed
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: mock-llm-api-server-pod
-  namespace: openshift-lightspeed
----
-apiVersion: v1
 kind: Pod
 metadata:
   name: mock-llm-api-server-pod
   namespace: openshift-lightspeed
-  labels:
-    app: mock-llm-api-server-pod
 status:
   phase: Running
-

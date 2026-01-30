@@ -63,7 +63,7 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,namespace=openshift-lightspeed,verbs=update;patch;delete
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,namespace=openshift-lightspeed,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,namespace=openshift-lightspeed,verbs=get;list;watch;update;delete
-// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -221,7 +221,7 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 			return fmt.Errorf("OLSConfig is managed by different OpenStackLightspeed instance")
 		}
 
-		err = PatchOLSConfig(helper, instance, &olsConfig, instance.Status.ActiveOCPVersion)
+		err = PatchOLSConfig(helper, instance, &olsConfig)
 		if err != nil {
 			return err
 		}
@@ -269,29 +269,25 @@ func (r *OpenStackLightspeedReconciler) resolveOCPVersion(
 
 	// If OCP RAG is disabled, return empty string
 	if !instance.Spec.EnableOCPRAG {
-		instance.Status.Conditions.Remove(apiv1beta1.OCPVersionCondition)
-		instance.Status.DetectedOCPVersion = ""
-		instance.Status.ActiveOCPVersion = ""
-		instance.Status.OCPVersionFallback = false
+		instance.Status.Conditions.Remove(apiv1beta1.OCPRAGCondition)
+		instance.Status.ActiveOCPRAGVersion = ""
 		return ""
 	}
 
 	// Step 1: Detect cluster version
 	detectedVersion, err := DetectOCPVersion(ctx, helper)
-	instance.Status.DetectedOCPVersion = detectedVersion
 
 	if err != nil {
 		Log.Info("Failed to detect OCP version, disabling OCP RAG", "error", err)
 		cond := condition.FalseCondition(
 			apiv1beta1.OCPVersionCondition,
 			condition.ErrorReason,
-			condition.SeverityWarning,
+			condition.SeverityError,
 			apiv1beta1.OCPVersionDetectionFailed,
 		)
 		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPVersionDetectionFailed, err.Error())
 		instance.Status.Conditions.Set(cond)
-		instance.Status.ActiveOCPVersion = ""
-		instance.Status.OCPVersionFallback = false
+		instance.Status.ActiveOCPRAGVersion = ""
 		return ""
 	}
 
@@ -300,7 +296,7 @@ func (r *OpenStackLightspeedReconciler) resolveOCPVersion(
 	// Step 2: Resolve which version to use (with override and fallback)
 	activeVersion, isFallback, err := ResolveOCPVersion(
 		detectedVersion,
-		instance.Spec.OCPVersionOverride,
+		instance.Spec.OCPRAGVersionOverride,
 		instance.Spec.EnableOCPRAG,
 	)
 
@@ -315,38 +311,59 @@ func (r *OpenStackLightspeedReconciler) resolveOCPVersion(
 		)
 		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPVersionOverrideInvalid, err.Error())
 		instance.Status.Conditions.Set(cond)
-		instance.Status.ActiveOCPVersion = ""
-		instance.Status.OCPVersionFallback = false
+		instance.Status.ActiveOCPRAGVersion = ""
 		return ""
 	}
 
 	// Step 3: Update status and conditions based on resolution
-	instance.Status.ActiveOCPVersion = activeVersion
-	instance.Status.OCPVersionFallback = isFallback
+	instance.Status.ActiveOCPRAGVersion = activeVersion
 
 	if isFallback {
-		// Using 'latest' as fallback - set warning
 		Log.Info("Using 'latest' OCP documentation as fallback",
 			"detectedVersion", detectedVersion,
 			"supportedVersions", SupportedOCPVersions)
 
 		cond := condition.TrueCondition(
-			apiv1beta1.OCPVersionCondition,
-			apiv1beta1.OCPVersionFallback,
+			apiv1beta1.OCPRAGCondition,
+			"Fallback",
 		)
-		cond.Message = fmt.Sprintf("Cluster version %s is not explicitly supported. Using 'latest' OCP documentation. Supported versions: %v",
+		cond.Message = fmt.Sprintf(apiv1beta1.OCPRAGVersionFallbackMessage,
 			detectedVersion, SupportedOCPVersions)
 		instance.Status.Conditions.Set(cond)
 	} else {
-		// Successfully using a supported version
 		Log.Info("Using OCP RAG documentation", "version", activeVersion)
-		instance.Status.Conditions.MarkTrue(
-			apiv1beta1.OCPVersionCondition,
-			apiv1beta1.OCPVersionDetected,
+		cond := condition.TrueCondition(
+			apiv1beta1.OCPRAGCondition,
+			"Resolved",
 		)
+		cond.Message = fmt.Sprintf(apiv1beta1.OCPRAGVersionResolvedMessage, activeVersion)
+		instance.Status.Conditions.Set(cond)
 	}
 
 	return activeVersion
+}
+
+// NotifyAllOpenStackLightspedsClusterWide returns reconcile requests for all OpenStackLightspeed
+// objects across all namespaces. This is used to trigger reconciliation when cluster-scoped
+// resources like ClusterVersion change (e.g., when OCP is upgraded from 4.16 to 4.18).
+func (r *OpenStackLightspeedReconciler) NotifyAllOpenStackLightspedsClusterWide(ctx context.Context, obj client.Object) []ctrl.Request {
+	var lightspeedList apiv1beta1.OpenStackLightspeedList
+	// List across all namespaces (no namespace filter)
+	if err := r.List(ctx, &lightspeedList); err != nil {
+		return nil
+	}
+
+	requests := make([]ctrl.Request, 0, len(lightspeedList.Items))
+	for _, item := range lightspeedList.Items {
+		requests = append(requests, ctrl.Request{
+			NamespacedName: client.ObjectKey{
+				Namespace: item.GetNamespace(),
+				Name:      item.GetName(),
+			},
+		})
+	}
+
+	return requests
 }
 
 // reconcileDelete reconciles the deletion of OpenStackLightspeed instance
@@ -382,6 +399,15 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *OpenStackLightspeedReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	// Create an unstructured ClusterVersion for watching
+	// This triggers reconciliation when OCP is upgraded (e.g., 4.16 -> 4.18)
+	clusterVersion := &uns.Unstructured{}
+	clusterVersion.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "config.openshift.io",
+		Version: "v1",
+		Kind:    "ClusterVersion",
+	})
+
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiv1beta1.OpenStackLightspeed{}).
 		Owns(&operatorsv1alpha1.ClusterServiceVersion{}).
@@ -389,6 +415,11 @@ func (r *OpenStackLightspeedReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Watches(
 			&operatorsv1alpha1.InstallPlan{},
 			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspeeds),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
+		Watches(
+			clusterVersion,
+			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspedsClusterWide),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
 		Complete(r)

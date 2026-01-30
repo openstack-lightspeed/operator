@@ -39,14 +39,14 @@ type OpenStackLightspeedSpec struct {
 	RAGImage string `json:"ragImage"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default=true
+	// +kubebuilder:default=false
 	// EnableOCPRAG enables automatic OCP documentation based on cluster version
 	EnableOCPRAG bool `json:"enableOCPRAG,omitempty"`
 
 	// +kubebuilder:validation:Optional
 	// OCPVersionOverride allows forcing a specific OCP version instead of auto-detection.
 	// Format should be like "4.15", "4.16", etc.
-	OCPVersionOverride string `json:"ocpVersionOverride,omitempty"`
+	OCPRAGVersionOverride string `json:"ocpVersionOverride,omitempty"`
 }
 
 // OpenStackLightspeedCore defines the desired state of OpenStackLightspeed
@@ -117,22 +117,15 @@ type OpenStackLightspeedStatus struct {
 	// ObservedGeneration - the most recent generation observed for this object.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
-	// DetectedOCPVersion contains the auto-detected OCP cluster version
-	DetectedOCPVersion string `json:"detectedOCPVersion,omitempty"`
-
 	// ActiveOCPVersion contains the OCP version being used for RAG configuration
 	// Will be one of: "4.16", "4.18", "latest", or empty if OCP RAG is disabled
-	ActiveOCPVersion string `json:"activeOCPVersion,omitempty"`
-
-	// OCPVersionFallback indicates if using 'latest' as fallback for unsupported version
-	OCPVersionFallback bool `json:"ocpVersionFallback,omitempty"`
+	ActiveOCPRAGVersion string `json:"activeOCPVersion,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].status",description="Status"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[0].message",description="Message"
-// +kubebuilder:printcolumn:name="OCP Version",type="string",JSONPath=".status.activeOCPVersion"
 
 // OpenStackLightspeed is the Schema for the openstacklightspeeds API
 type OpenStackLightspeed struct {
