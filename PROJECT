@@ -2,7 +2,7 @@
 # This file is used to track the info used to scaffold your project
 # and allow the plugins properly work.
 # More info: https://book.kubebuilder.io/reference/project-config.html
-domain: lightspeed.openstack.org
+domain: openstack.org
 layout:
 - go.kubebuilder.io/v4
 plugins:
@@ -16,8 +16,8 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: lightspeed.openstack.org
-  group: api
+  domain: openstack.org
+  group: lightspeed
   kind: OpenStackLightspeed
   path: github.com/openstack-lightspeed/operator/api/v1beta1
   version: v1beta1
