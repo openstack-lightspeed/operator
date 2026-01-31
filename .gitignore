@@ -8,6 +8,9 @@ bin/*
 out/
 Dockerfile.cross
 
+bundle/*
+bundle.Dockerfile
+
 # Test binary, built with `go test -c`
 *.test
 
