@@ -96,9 +96,7 @@ status:
     - type: ApiReady
       status: "True"
       reason: Available
-    - type: Reconciled
-      status: "True"
-      reason: Available
+  overallStatus: Ready
 ---
 apiVersion: lightspeed.openstack.org/v1beta1
 kind: OpenStackLightspeed
