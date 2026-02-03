@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -267,36 +266,20 @@ func PatchOLSConfig(
 	return nil
 }
 
-// IsOLSConfigReady returns true if required conditions are true for OLSConfig
+// IsOLSConfigReady returns true if OLSConfig's overallStatus is Ready
 func IsOLSConfigReady(ctx context.Context, helper *common_helper.Helper) (bool, error) {
 	olsConfig, err := GetOLSConfig(ctx, helper)
 	if err != nil {
 		return false, err
 	}
 
-	olsConfigStatusList, found, err := uns.NestedSlice(olsConfig.Object, "status", "conditions")
-	if !found {
+	overallStatus, found, err := uns.NestedString(olsConfig.Object, "status", "overallStatus")
+	if err != nil {
 		return false, err
 	}
 
-	jsonData, err := json.Marshal(olsConfigStatusList)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal OLSConfig status: %w", err)
-	}
-
-	var OLSConfigConditions []metav1.Condition
-	err = json.Unmarshal(jsonData, &OLSConfigConditions)
-	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal JSON containing condition.Conditions: %w", err)
-	}
-
-	requiredConditionTypes := []string{"ConsolePluginReady", "CacheReady", "ApiReady", "Reconciled"}
-	for _, OLSConfigCondition := range OLSConfigConditions {
-		for _, requiredConditionType := range requiredConditionTypes {
-			if OLSConfigCondition.Type == requiredConditionType && OLSConfigCondition.Status != metav1.ConditionTrue {
-				return false, OLSConfigPing(ctx, helper)
-			}
-		}
+	if !found || overallStatus != "Ready" {
+		return false, OLSConfigPing(ctx, helper)
 	}
 
 	return true, nil
