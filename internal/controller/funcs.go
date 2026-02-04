@@ -109,7 +109,14 @@ func RemoveOLSConfig(
 		return false, err
 	}
 
-	return true, nil
+	_, err = GetOLSConfig(ctx, helper)
+	if err != nil && k8s_errors.IsNotFound(err) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
 // GetOLSConfig returns OLSConfig if there is one present in the cluster.
