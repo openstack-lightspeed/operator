@@ -62,6 +62,8 @@ endif
 OPERATOR_SDK_VERSION ?= v1.38.0-ocp
 # Image URL to use all building/pushing image targets
 IMG ?= $(IMAGE_TAG_BASE):latest
+# OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION defines the version injected into the operator (OLS operator version)
+OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION ?= latest
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.30.0
 
@@ -327,8 +329,10 @@ endif
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	cd config/manager && $(KUSTOMIZE) edit add patch --kind Deployment --name controller-manager --patch "[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/env/0/value\", \"value\": \"$(OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION)\"}]"
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
+	cd config/manager && $(KUSTOMIZE) edit remove patch --kind Deployment --name controller-manager --patch "[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/env/0/value\", \"value\": \"$(OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION)\"}]"
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
