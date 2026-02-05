@@ -24,7 +24,7 @@ metadata:
         }
       ]
     capabilities: Basic Install
-    createdAt: "2026-01-16T13:55:22Z"
+    createdAt: "2026-02-03T12:43:44Z"
     operatorframework.io/suggested-namespace: openshift-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
@@ -35,37 +35,15 @@ spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
     owned:
-    - kind: OpenStackLightspeed
+    - description: OpenStackLightspeed is the Schema for the openstacklightspeeds
+        API
+      displayName: Open Stack Lightspeed
+      kind: OpenStackLightspeed
       name: openstacklightspeeds.lightspeed.openstack.org
       specDescriptors:
-      - description: URL pointing to the LLM
-        displayName: LLMEndpoint
-        path: llmEndpoint
       - description: Type of the provider serving the LLM
-        displayName: LLMEndpointType
+        displayName: Provider Type
         path: llmEndpointType
-      - description: Name of the model to use at the API endpoint
-        displayName: ModelName
-        path: modelName
-      - description: Secret name containing API token for the LLMEndpoint
-        displayName: LLMCredentials
-        path: llmCredentials
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:Secret
-      - description: Configmap name containing a CA Certificates bundle
-        displayName: TLSCACertBundle
-        path: tlsCACertBundle
-        x-descriptors:
-        - urn:alm:descriptor:io.kubernetes:ConfigMap
-      - description: MaxTokensForResponse defines the maximum number of tokens to
-          be used for the response generation
-        displayName: MaxTokensForResponse
-        path: maxTokensForResponse
-        x-descriptors:
-        - urn:alm:descriptor:com.tectonic.ui:advanced
-      statusDescriptors:
-      - displayName: Conditions
-        path: conditions
       version: v1beta1
   description: |-
     OpenStack Lightspeed is a generative AI-based virtual assistant for Red Hat OpenStack Services on OpenShift (RHOSO) users which integrates into the OpenShift Lightspeed.
@@ -187,6 +165,8 @@ spec:
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT
+                  value: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
                 image: quay.io/openstack-lightspeed/operator:latest
                 livenessProbe:
                   httpGet:
@@ -307,7 +287,11 @@ spec:
   - email: Lukas Piwowarski
     name: lpiwowar@redhat.com
   maturity: alpha
+  minKubeVersion: 1.31.0
   provider:
     name: Red Hat
     url: https://github.com/openstack-lightspeed/operator
+  relatedImages:
+  - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+    name: openstack-lightspeed-image-url-default
   version: 0.0.1
