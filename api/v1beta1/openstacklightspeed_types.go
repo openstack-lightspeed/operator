@@ -37,6 +37,16 @@ type OpenStackLightspeedSpec struct {
 	// +kubebuilder:validation:Optional
 	// ContainerImage for the OpenStack Lightspeed RAG container (will be set to environmental default if empty)
 	RAGImage string `json:"ragImage"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=false
+	// Enables automatic OCP documentation based on cluster version
+	EnableOCPRAG bool `json:"enableOCPRAG,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Allows forcing a specific OCP version instead of auto-detection.
+	// Format should be like "4.15", "4.16", etc.
+	OCPRAGVersionOverride string `json:"ocpVersionOverride,omitempty"`
 }
 
 // OpenStackLightspeedCore defines the desired state of OpenStackLightspeed
@@ -106,6 +116,11 @@ type OpenStackLightspeedStatus struct {
 
 	// ObservedGeneration - the most recent generation observed for this object.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// +optional
+	// ActiveOCPRAGVersion contains the OCP version being used for RAG configuration
+	// Will be one of: "4.16", "4.18", "latest", or empty if OCP RAG is disabled
+	ActiveOCPRAGVersion string `json:"activeOCPRAGVersion,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -58,6 +58,11 @@ spec:
                 description: Namespace where the CatalogSource containing the OLS
                   operator is located
                 type: string
+              enableOCPRAG:
+                default: false
+                description: Enables automatic OCP documentation based on cluster
+                  version
+                type: boolean
               feedbackDisabled:
                 description: Disable feedback collection
                 type: boolean
@@ -99,6 +104,11 @@ spec:
                 description: Name of the model to use at the API endpoint provided
                   in LLMEndpoint
                 type: string
+              ocpVersionOverride:
+                description: |-
+                  Allows forcing a specific OCP version instead of auto-detection.
+                  Format should be like "4.15", "4.16", etc.
+                type: string
               ragImage:
                 description: ContainerImage for the OpenStack Lightspeed RAG container
                   (will be set to environmental default if empty)
@@ -118,6 +128,11 @@ spec:
           status:
             description: OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed
             properties:
+              activeOCPRAGVersion:
+                description: |-
+                  ActiveOCPRAGVersion contains the OCP version being used for RAG configuration
+                  Will be one of: "4.16", "4.18", "latest", or empty if OCP RAG is disabled
+                type: string
               conditions:
                 description: Conditions
                 items:

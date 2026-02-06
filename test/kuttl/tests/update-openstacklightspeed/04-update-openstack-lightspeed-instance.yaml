@@ -15,3 +15,5 @@ spec:
   llmAPIVersion: v1.1
   feedbackDisabled: true
   transcriptsDisabled: true
+  enableOCPRAG: true
+  ocpVersionOverride: "4.16"
