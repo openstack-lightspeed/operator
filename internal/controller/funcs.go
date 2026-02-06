@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -110,7 +109,14 @@ func RemoveOLSConfig(
 		return false, err
 	}
 
-	return true, nil
+	_, err = GetOLSConfig(ctx, helper)
+	if err != nil && k8s_errors.IsNotFound(err) {
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	return false, nil
 }
 
 // GetOLSConfig returns OLSConfig if there is one present in the cluster.
@@ -135,6 +141,30 @@ func GetOLSConfig(ctx context.Context, helper *common_helper.Helper) (uns.Unstru
 	return uns.Unstructured{}, k8s_errors.NewNotFound(
 		schema.GroupResource{Group: "ols.openshifg.io", Resource: "olsconfigs"},
 		"OLSConfig")
+}
+
+// BuildRAGConfigs builds the RAG configuration array.
+// OpenStack RAG is always included first.
+// OCP RAG is added if ocpVersion is provided.
+func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []interface{} {
+	rags := []interface{}{
+		// OpenStack RAG
+		map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": OpenStackLightspeedVectorDBPath,
+		},
+	}
+
+	// Add OCP RAG if enabled
+	if ocpVersion != "" {
+		rags = append(rags, map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": GetOCPVectorDBPath(ocpVersion),
+			"indexID":   GetOCPIndexName(ocpVersion),
+		})
+	}
+
+	return rags
 }
 
 // PatchOLSConfig patches OLSConfig with information from OpenStackLightspeed instance.
@@ -187,17 +217,10 @@ func PatchOLSConfig(
 	}
 
 	// Patch the RAG section
-	// NOTE(lucasagomes): We don't need indexID here because the tag on our RAG images
-	// already matches the indexID that the Vector DB used when it was built. OLS leverages
-	// that to set the right index.
-	openstackRAG := []interface{}{
-		map[string]interface{}{
-			"image":     instance.Spec.RAGImage,
-			"indexPath": OpenStackLightspeedVectorDBPath,
-		},
-	}
+	// Build RAG array with priorities using BuildRAGConfigs
+	ragConfigs := BuildRAGConfigs(instance, instance.Status.ActiveOCPRAGVersion)
 
-	if err := uns.SetNestedSlice(olsConfig.Object, openstackRAG, "spec", "ols", "rag"); err != nil {
+	if err := uns.SetNestedSlice(olsConfig.Object, ragConfigs, "spec", "ols", "rag"); err != nil {
 		return err
 	}
 
@@ -267,36 +290,20 @@ func PatchOLSConfig(
 	return nil
 }
 
-// IsOLSConfigReady returns true if required conditions are true for OLSConfig
+// IsOLSConfigReady returns true if OLSConfig's overallStatus is Ready
 func IsOLSConfigReady(ctx context.Context, helper *common_helper.Helper) (bool, error) {
 	olsConfig, err := GetOLSConfig(ctx, helper)
 	if err != nil {
 		return false, err
 	}
 
-	olsConfigStatusList, found, err := uns.NestedSlice(olsConfig.Object, "status", "conditions")
-	if !found {
+	overallStatus, found, err := uns.NestedString(olsConfig.Object, "status", "overallStatus")
+	if err != nil {
 		return false, err
 	}
 
-	jsonData, err := json.Marshal(olsConfigStatusList)
-	if err != nil {
-		return false, fmt.Errorf("failed to marshal OLSConfig status: %w", err)
-	}
-
-	var OLSConfigConditions []metav1.Condition
-	err = json.Unmarshal(jsonData, &OLSConfigConditions)
-	if err != nil {
-		return false, fmt.Errorf("failed to unmarshal JSON containing condition.Conditions: %w", err)
-	}
-
-	requiredConditionTypes := []string{"ConsolePluginReady", "CacheReady", "ApiReady", "Reconciled"}
-	for _, OLSConfigCondition := range OLSConfigConditions {
-		for _, requiredConditionType := range requiredConditionTypes {
-			if OLSConfigCondition.Type == requiredConditionType && OLSConfigCondition.Status != metav1.ConditionTrue {
-				return false, OLSConfigPing(ctx, helper)
-			}
-		}
+	if !found || overallStatus != "Ready" {
+		return false, OLSConfigPing(ctx, helper)
 	}
 
 	return true, nil

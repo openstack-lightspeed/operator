@@ -1,0 +1,17 @@
+---
+apiVersion: lightspeed.openstack.org/v1beta1
+kind: OpenStackLightspeed
+metadata:
+  name: openstack-lightspeed
+  namespace: openshift-lightspeed
+status:
+  activeOCPRAGVersion: "4.16"
+  conditions:
+    - type: Ready
+      status: "True"
+    - type: OCPRAGReady
+      status: "True"
+    - type: OpenShiftLightspeedOperatorReady
+      status: "True"
+    - type: OpenStackLightspeedReady
+      status: "True"

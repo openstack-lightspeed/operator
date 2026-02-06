@@ -29,6 +29,9 @@ spec:
       - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
         indexID: ""
         indexPath: /rag/vector_db/os_product_docs
+      - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+        indexID: ocp-product-docs-4_16
+        indexPath: /rag/ocp_vector_db/ocp-4.16
     userDataCollection:
       feedbackDisabled: true
       transcriptsDisabled: true
