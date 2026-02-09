@@ -143,6 +143,30 @@ func GetOLSConfig(ctx context.Context, helper *common_helper.Helper) (uns.Unstru
 		"OLSConfig")
 }
 
+// BuildRAGConfigs builds the RAG configuration array.
+// OpenStack RAG is always included first.
+// OCP RAG is added if ocpVersion is provided.
+func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []interface{} {
+	rags := []interface{}{
+		// OpenStack RAG
+		map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": OpenStackLightspeedVectorDBPath,
+		},
+	}
+
+	// Add OCP RAG if enabled
+	if ocpVersion != "" {
+		rags = append(rags, map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": GetOCPVectorDBPath(ocpVersion),
+			"indexID":   GetOCPIndexName(ocpVersion),
+		})
+	}
+
+	return rags
+}
+
 // PatchOLSConfig patches OLSConfig with information from OpenStackLightspeed instance.
 func PatchOLSConfig(
 	helper *common_helper.Helper,
@@ -193,17 +217,10 @@ func PatchOLSConfig(
 	}
 
 	// Patch the RAG section
-	// NOTE(lucasagomes): We don't need indexID here because the tag on our RAG images
-	// already matches the indexID that the Vector DB used when it was built. OLS leverages
-	// that to set the right index.
-	openstackRAG := []interface{}{
-		map[string]interface{}{
-			"image":     instance.Spec.RAGImage,
-			"indexPath": OpenStackLightspeedVectorDBPath,
-		},
-	}
+	// Build RAG array with priorities using BuildRAGConfigs
+	ragConfigs := BuildRAGConfigs(instance, instance.Status.ActiveOCPRAGVersion)
 
-	if err := uns.SetNestedSlice(olsConfig.Object, openstackRAG, "spec", "ols", "rag"); err != nil {
+	if err := uns.SetNestedSlice(olsConfig.Object, ragConfigs, "spec", "ols", "rag"); err != nil {
 		return err
 	}
 

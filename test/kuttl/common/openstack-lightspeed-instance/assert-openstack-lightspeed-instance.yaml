@@ -113,12 +113,17 @@ spec:
   tlsCACertBundle: openstack-lightspeed-cert
   llmProjectID: test-project-id
   llmDeploymentName: test-deployment-name
+  llmAPIVersion: v1
 status:
   conditions:
     - type: Ready
       status: "True"
       reason: Ready
       message: Setup complete
+    - type: OCPRAGReady
+      status: "True"
+      reason: Ready
+      message: OCP RAG is disabled
     - type: OpenShiftLightspeedOperatorReady
       status: "True"
       reason: Ready
