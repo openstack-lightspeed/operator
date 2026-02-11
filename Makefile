@@ -332,7 +332,6 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 	cd config/manager && $(KUSTOMIZE) edit add patch --kind Deployment --name controller-manager --patch "[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/env/0/value\", \"value\": \"$(OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION)\"}]"
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
-	cd config/manager && $(KUSTOMIZE) edit remove patch --kind Deployment --name controller-manager --patch "[{\"op\": \"replace\", \"path\": \"/spec/template/spec/containers/0/env/0/value\", \"value\": \"$(OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION)\"}]"
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
