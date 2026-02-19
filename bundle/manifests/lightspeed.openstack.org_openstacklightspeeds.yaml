@@ -72,8 +72,8 @@ spec:
                 type: string
               llmCredentials:
                 description: |-
-                  Secret name containing API token for the LLMEndpoint. The key for the field
-                  in the secret that holds the token should be "apitoken".
+                  Secret name containing API token for the LLMEndpoint. The secret must contain
+                  a field named "apitoken" which holds the token value.
                 type: string
               llmDeploymentName:
                 description: Deployment name for LLM providers that require it (e.g.,

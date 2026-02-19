@@ -52,6 +52,7 @@ type OpenStackLightspeedSpec struct {
 // OpenStackLightspeedCore defines the desired state of OpenStackLightspeed
 type OpenStackLightspeedCore struct {
 	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Endpoint"
 	// URL pointing to the LLM
 	LLMEndpoint string `json:"llmEndpoint"`
 
@@ -62,15 +63,18 @@ type OpenStackLightspeedCore struct {
 	LLMEndpointType string `json:"llmEndpointType"`
 
 	// +kubebuilder:validation:Required
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Model Name"
 	// Name of the model to use at the API endpoint provided in LLMEndpoint
 	ModelName string `json:"modelName"`
 
 	// +kubebuilder:validation:Required
-	// Secret name containing API token for the LLMEndpoint. The key for the field
-	// in the secret that holds the token should be "apitoken".
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="LLM Credentials Secret"
+	// Secret name containing API token for the LLMEndpoint. The secret must contain
+	// a field named "apitoken" which holds the token value.
 	LLMCredentials string `json:"llmCredentials"`
 
 	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="TLS CA Certificate Bundle"
 	// Configmap name containing a CA Certificates bundle
 	TLSCACertBundle string `json:"tlsCACertBundle"`
 

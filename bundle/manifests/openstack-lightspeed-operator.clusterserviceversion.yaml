@@ -25,7 +25,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: AI/Machine Learning
-    createdAt: "2026-02-19T12:53:35Z"
+    createdAt: "2026-02-19T13:45:56Z"
     description: AI-powered virtual assistant for Red Hat OpenStack Services on OpenShift
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -66,9 +66,23 @@ spec:
         name: cluster
         version: v1alpha1
       specDescriptors:
+      - description: |-
+          Secret name containing API token for the LLMEndpoint. The secret must contain
+          a field named "apitoken" which holds the token value.
+        displayName: LLM Credentials Secret
+        path: llmCredentials
+      - description: URL pointing to the LLM
+        displayName: LLM Endpoint
+        path: llmEndpoint
       - description: Type of the provider serving the LLM
         displayName: Provider Type
         path: llmEndpointType
+      - description: Name of the model to use at the API endpoint provided in LLMEndpoint
+        displayName: Model Name
+        path: modelName
+      - description: Configmap name containing a CA Certificates bundle
+        displayName: TLS CA Certificate Bundle
+        path: tlsCACertBundle
       version: v1beta1
   description: |-
     OpenStack Lightspeed is a generative AI-based virtual assistant for Red Hat OpenStack Services on OpenShift (RHOSO) users which integrates into the OpenShift Lightspeed.
