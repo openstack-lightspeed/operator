@@ -178,10 +178,17 @@ func main() {
 	// Defaults for OpenStackLightspeed
 	apiv1beta1.SetupDefaults()
 
+	dynamicWatchCRDs, err := getDynamicWatchCRDs()
+	if err != nil {
+		setupLog.Error(err, "unable to retrieve DynamicWatchCRDs")
+		os.Exit(1)
+	}
+
 	if err = (&controller.OpenStackLightspeedReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Cache:  mgr.GetCache(),
+		Client:          mgr.GetClient(),
+		Scheme:          mgr.GetScheme(),
+		Cache:           mgr.GetCache(),
+		DynamicWatchCRD: dynamicWatchCRDs,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpenStackLightspeed")
 		os.Exit(1)
@@ -218,4 +225,23 @@ func getWatchNamespaces() ([]string, error) {
 	}
 
 	return strings.Split(ns, ","), nil
+}
+
+// getDynamicWatchCRDs returns a map of GroupVersionKind to *atomic.Bool
+// representing resources that should be watched dynamically. The watch starts
+// once they appear in the cluster for the first time (not required at operator
+// start time).
+func getDynamicWatchCRDs() (map[schema.GroupVersionKind]*atomic.Bool, error) {
+	var openStackControlPlane openstackv1beta1.OpenStackControlPlane
+	openStackControlPlaneGVKs, _, err := scheme.ObjectKinds(&openStackControlPlane)
+	if err != nil {
+		return nil, err
+	}
+
+	dynamicWatchCRDs := make(map[schema.GroupVersionKind]*atomic.Bool)
+	for _, gvk := range openStackControlPlaneGVKs {
+		dynamicWatchCRDs[gvk] = new(atomic.Bool)
+	}
+
+	return dynamicWatchCRDs, nil
 }

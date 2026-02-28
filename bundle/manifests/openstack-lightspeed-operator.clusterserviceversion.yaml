@@ -115,6 +115,14 @@ spec:
           - list
           - watch
         - apiGroups:
+          - core.openstack.org
+          resources:
+          - openstackcontrolplanes
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - lightspeed.openstack.org
           resources:
           - openstacklightspeeds
