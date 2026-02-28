@@ -22,13 +22,15 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync/atomic"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	_ "github.com/openstack-k8s-operators/openstack-operator/api/core/v1beta1"
+	openstackv1beta1 "github.com/openstack-k8s-operators/openstack-operator/api/core/v1beta1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,6 +42,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	"github.com/openstack-lightspeed/operator/internal/controller"
@@ -57,6 +60,10 @@ func init() {
 	utilruntime.Must(operatorsv1alpha1.AddToScheme(scheme))
 
 	utilruntime.Must(apiv1beta1.AddToScheme(scheme))
+
+	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
+
+	utilruntime.Must(openstackv1beta1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -174,6 +181,7 @@ func main() {
 	if err = (&controller.OpenStackLightspeedReconciler{
 		Client: mgr.GetClient(),
 		Scheme: mgr.GetScheme(),
+		Cache:  mgr.GetCache(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "OpenStackLightspeed")
 		os.Exit(1)

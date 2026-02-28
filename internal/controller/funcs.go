@@ -22,6 +22,9 @@ import (
 	"math/rand"
 	"strconv"
 
+	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -29,10 +32,13 @@ import (
 	_ "embed"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	common_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
+	openstackv1 "github.com/openstack-k8s-operators/openstack-operator/api/core/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -172,6 +178,7 @@ func PatchOLSConfig(
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
 	olsConfig *uns.Unstructured,
+	dynamicWatchCRD *DynamicWatchCRD,
 ) error {
 	// Patch the Providers section
 	providersPatch := []interface{}{
@@ -361,4 +368,78 @@ func OLSConfigPing(ctx context.Context, helper *common_helper.Helper) error {
 		return err
 	}
 	return nil
+}
+
+// GetCRDName returns the name of the CustomResourceDefinition (CRD) for a given
+// GroupVersionKind (GVK). The CRD name is constructed as "<Kind>s.<Group>" string.
+//
+// NOTE(lpiwowar): This approach is NOT perfect but it is sufficient for
+// OpenStackControlPlane use cases and potentially other CRDs. For broader use,
+// we should consider implementing a more robust transformation from GroupVersionKind
+// to CRD name.
+func GetCRDName(gvk schema.GroupVersionKind) string {
+	return fmt.Sprintf("%ss.%s", gvk.Kind, gvk.Group)
+}
+
+// IsCRDEstablished checks if a CRD exists and is in "Established" state (ready for use)
+// It returns the following values:
+//   - (true, nil) if the CRD exists and is established
+//   - (false, nil) if the CRD doesn't exist
+//   - (false, error) for other errors
+func IsCRDEstablished(ctx context.Context, helper *common_helper.Helper, gvk schema.GroupVersionKind) (bool, error) {
+	crdName := GetCRDName(gvk)
+	crd := &apiextensionsv1.CustomResourceDefinition{}
+	err := helper.GetClient().Get(ctx, client.ObjectKey{Name: crdName}, crd)
+	if err != nil && k8s_errors.IsNotFound(err) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	for _, condition := range crd.Status.Conditions {
+		if condition.Type == apiextensionsv1.Established && condition.Status == apiextensionsv1.ConditionTrue {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+
+// GetObjectGVKs retrieves the GroupVersionKinds for an clientObject using the
+// provided runtime.Scheme. It returns the list of GVKs and any error encountered.
+func GetObjectGVKs(helper *common_helper.Helper, object client.Object) ([]schema.GroupVersionKind, error) {
+	gvks, _, err := helper.GetScheme().ObjectKinds(object)
+	if err != nil {
+		return nil, err
+	}
+
+	return gvks, nil
+}
+
+// IsDynamicCRDReady checks whether all GroupVersionKinds (GVKs) associated with
+// the given object are being watched and have been observed as ready by the
+// dynamic watch. It returns true only if all relevant GVKs are present and marked as seen.
+func IsDynamicCRDReady(
+	helper *common_helper.Helper,
+	dynamicWatchCRD DynamicWatchCRD,
+	object client.Object,
+) (bool, error) {
+	gvks, err := GetObjectGVKs(helper, object)
+	if err != nil {
+		return false, err
+	}
+
+	for _, gvk := range gvks {
+		seen, exists := dynamicWatchCRD[gvk]
+		if !exists {
+			return false, fmt.Errorf("GVK %v not found in DynamicWatchCRD map", gvk)
+		}
+
+		if !seen.Load() {
+			return false, nil
+		}
+	}
+
+	return true, nil
 }

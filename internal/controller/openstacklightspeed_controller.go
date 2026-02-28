@@ -19,12 +19,14 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -32,20 +34,32 @@ import (
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 )
 
-// OpenStackLightspeedReconciler reconciles a OpenStackLightspeed object
+type DynamicWatchCRD map[schema.GroupVersionKind]*atomic.Bool
+
+// OpenStackLightspeedReconciler is responsible for reconciling OpenStackLightspeed objects.
 type OpenStackLightspeedReconciler struct {
 	client.Client
-	Scheme  *runtime.Scheme
-	Kclient kubernetes.Interface
+	Scheme     *runtime.Scheme
+	Kclient    kubernetes.Interface
+	controller controller.Controller
+	Cache      cache.Cache
+
+	// DynamicWatchCRD contains the list of CRDs that the operator should monitor.
+	// These CRDs do not need to exist when the operator starts. Once the operator
+	// detects that a CRD exists, it automatically registers a watch for it using Watch().
+	DynamicWatchCRD DynamicWatchCRD
 }
 
 // GetLogger returns a logger object with a prefix of "controller.name" and additional controller context fields
@@ -64,6 +78,7 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=subscriptions,namespace=openshift-lightspeed,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=installplans,namespace=openshift-lightspeed,verbs=get;list;watch;update;delete
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -74,7 +89,7 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
-func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (result ctrl.Result, e error) {
 	Log := r.GetLogger(ctx)
 	Log.Info("OpenStackLightspeed Reconciling")
 
@@ -95,6 +110,11 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		r.Scheme,
 		Log,
 	)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
+	err = r.WatchDynamicCRD(ctx, helper)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -130,6 +150,11 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 			return
 		}
 
+		for _, GVKSeen := range r.DynamicWatchCRD {
+			if !GVKSeen.Load() {
+				result.RequeueAfter = 30 * time.Second
+			}
+		}
 	}()
 
 	cl := condition.CreateList(
@@ -160,6 +185,19 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	if instance.Spec.MaxTokensForResponse == 0 {
 		instance.Spec.MaxTokensForResponse = apiv1beta1.OpenStackLightspeedDefaultValues.MaxTokensForResponse
+	}
+
+	res, err := r.ReconcileMCPServer(ctx, helper, instance)
+	if err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
+			condition.ErrorReason,
+			condition.SeverityWarning,
+			condition.DeploymentReadyErrorMessage,
+			err.Error(),
+		))
+
+		return res, err
 	}
 
 	// Ensure a compatible version of the OpenShift Lightspeed Operator is running in the cluster.
@@ -388,7 +426,7 @@ func (r *OpenStackLightspeedReconciler) SetupWithManager(mgr ctrl.Manager) error
 		Kind:    "ClusterVersion",
 	})
 
-	return ctrl.NewControllerManagedBy(mgr).
+	c, err := ctrl.NewControllerManagedBy(mgr).
 		For(&apiv1beta1.OpenStackLightspeed{}).
 		Owns(&operatorsv1alpha1.ClusterServiceVersion{}).
 		Owns(&operatorsv1alpha1.Subscription{}).
@@ -402,7 +440,18 @@ func (r *OpenStackLightspeedReconciler) SetupWithManager(mgr ctrl.Manager) error
 			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspeeds),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
-		Complete(r)
+		Watches(
+			&apiextensionsv1.CustomResourceDefinition{},
+			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspeeds),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
+		Build(r)
+	if err != nil {
+		return err
+	}
+
+	r.controller = c
+	return nil
 }
 
 // NotifyAllOpenStackLightspeeds returns a list of reconcile requests for all OpenStackLightspeed objects.
@@ -435,4 +484,45 @@ func (r *OpenStackLightspeedReconciler) NotifyAllOpenStackLightspeeds(ctx contex
 	}
 
 	return requests
+}
+
+// WatchDynamicCRD dynamically registers watches for resources whose CRDs are listed
+// in r.DynamicWatchCRD. When a target CRD is detected as existing and available in the
+// cluster, this method ensures that the controller starts watching resources of that type.
+// This enables reconciliation to be triggered whenever those resources are created or modified.
+func (r *OpenStackLightspeedReconciler) WatchDynamicCRD(
+	ctx context.Context,
+	helper *common_helper.Helper,
+) error {
+	for gvk, seen := range r.DynamicWatchCRD {
+		crdAvailable, err := IsCRDEstablished(ctx, helper, gvk)
+		if err != nil {
+			return err
+		}
+
+		if !crdAvailable {
+			seen.Store(false)
+			continue
+		}
+
+		GVKUnstructObj := &uns.Unstructured{}
+		GVKUnstructObj.SetGroupVersionKind(gvk)
+		err = r.controller.Watch(
+			source.Kind(
+				r.Cache,
+				GVKUnstructObj,
+				handler.TypedEnqueueRequestsFromMapFunc(func(ctx context.Context, o *uns.Unstructured) []ctrl.Request {
+					return r.NotifyAllOpenStackLightspeeds(ctx, o)
+				}),
+				predicate.TypedResourceVersionChangedPredicate[*uns.Unstructured]{},
+			),
+		)
+		if err != nil {
+			return fmt.Errorf("failed to set up watch for %s: %w", GetCRDName(gvk), err)
+		}
+
+		seen.Store(true)
+	}
+
+	return nil
 }
