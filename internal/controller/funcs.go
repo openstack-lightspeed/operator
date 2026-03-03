@@ -18,12 +18,19 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/rand"
 	"strconv"
+	"strings"
 
-	"k8s.io/apimachinery/pkg/api/errors"
+	corev1 "k8s.io/api/core/v1"
+
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/utils/ptr"
 
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -31,11 +38,13 @@ import (
 
 	_ "embed"
 
+	appsv1 "k8s.io/api/apps/v1"
+
+	common_cm "github.com/openstack-k8s-operators/lib-common/modules/common/configmap"
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	common_secret "github.com/openstack-k8s-operators/lib-common/modules/common/secret"
 	openstackv1 "github.com/openstack-k8s-operators/openstack-operator/api/core/v1beta1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -46,6 +55,9 @@ const (
 	// OpenStackLightspeedDefaultProvider - contains default name for the provider created in OLSConfig
 	// by openstack-operator.
 	OpenStackLightspeedDefaultProvider = "openstack-lightspeed-provider"
+
+	// OpenStackLightspeedChecksumAnnotation - is the annotation key used to store the checksum of resources
+	OpenStackLightspeedChecksumAnnotation = "openstack.org/checksum"
 
 	// OpenStackLightspeedOwnerIDLabel - name of a label that contains ID of OpenStackLightspeed instance
 	// that manages the OLSConfig.
@@ -175,7 +187,9 @@ func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string
 
 // PatchOLSConfig patches OLSConfig with information from OpenStackLightspeed instance.
 func PatchOLSConfig(
+	ctx context.Context,
 	helper *common_helper.Helper,
+	scheme *runtime.Scheme,
 	instance *apiv1beta1.OpenStackLightspeed,
 	olsConfig *uns.Unstructured,
 	dynamicWatchCRD *DynamicWatchCRD,
@@ -289,6 +303,55 @@ func PatchOLSConfig(
 		return err
 	}
 
+	available, err := IsDynamicCRDReady(
+		helper,
+		*dynamicWatchCRD,
+		&openstackv1.OpenStackControlPlane{},
+	)
+	if err != nil {
+		return err
+	}
+
+	if available {
+		OpenShiftMCPServerConfig := map[string]interface{}{
+			"name": "openshift-lightspeed-mcp",
+			"streamableHTTP": map[string]interface{}{
+				"url": fmt.Sprintf("%s/openshift", GetMCPServerURL()),
+				"headers": map[string]interface{}{
+					"OCP_TOKEN": "kubernetes",
+				},
+			},
+		}
+
+		OpenStackMCPServerConfig := map[string]interface{}{
+			"name": "openstack-lightspeed-mcp",
+			"streamableHTTP": map[string]interface{}{
+				"url": fmt.Sprintf("%s/openstack", GetMCPServerURL()),
+			},
+		}
+
+		MCPServersConfig := []interface{}{OpenShiftMCPServerConfig, OpenStackMCPServerConfig}
+		err = uns.SetNestedSlice(olsConfig.Object, MCPServersConfig, "spec", "mcpServers")
+		if err != nil {
+			return err
+		}
+
+		// Add featureGates to enable "MCPServe"
+		err = uns.SetNestedSlice(olsConfig.Object, []interface{}{"MCPServer"}, "spec", "featureGates")
+		if err != nil {
+			return err
+		}
+	} else {
+		err = uns.SetNestedSlice(olsConfig.Object, []interface{}{}, "spec", "mcpServers")
+		if err != nil {
+			return err
+		}
+		err = uns.SetNestedSlice(olsConfig.Object, []interface{}{}, "spec", "featureGates")
+		if err != nil {
+			return err
+		}
+	}
+
 	// Add OpenStack finalizers
 	if !controllerutil.AddFinalizer(olsConfig, helper.GetFinalizer()) && instance.Status.Conditions == nil {
 		return fmt.Errorf("cannot add finalizer")
@@ -378,7 +441,7 @@ func OLSConfigPing(ctx context.Context, helper *common_helper.Helper) error {
 // we should consider implementing a more robust transformation from GroupVersionKind
 // to CRD name.
 func GetCRDName(gvk schema.GroupVersionKind) string {
-	return fmt.Sprintf("%ss.%s", gvk.Kind, gvk.Group)
+	return fmt.Sprintf("%ss.%s", strings.ToLower(gvk.Kind), gvk.Group)
 }
 
 // IsCRDEstablished checks if a CRD exists and is in "Established" state (ready for use)
@@ -405,6 +468,150 @@ func IsCRDEstablished(ctx context.Context, helper *common_helper.Helper, gvk sch
 	return false, nil
 }
 
+// CreateOwnerReference creates an owner reference for the given OpenStackLightspeed instance.
+func CreateOwnerReference(instance *apiv1beta1.OpenStackLightspeed) metav1.OwnerReference {
+	return metav1.OwnerReference{
+		APIVersion:         instance.APIVersion,
+		Kind:               instance.Kind,
+		Name:               instance.Name,
+		UID:                instance.UID,
+		Controller:         ptr.To(true),
+		BlockOwnerDeletion: ptr.To(true),
+	}
+}
+
+// CopyResource copies a resources (supported: Secret, ConfigMap) from one namespace
+// to another, applying the specified owner references and computing checksums.
+// It performs the following steps:
+//
+//  1. Fetches the source object identified by its namespace and name.
+//  2. Creates or patches the target object in the target namespace with the same data and relevant metadata.
+//  3. Sets the given owner references on the copied object.
+//  4. Recomputes and sets checksum annotation using the lib-common Hash methods.
+//
+// Returns the copied object if successful, or an error if the operation fails
+// or the type is unsupported.
+func CopyResource(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	sourceObject client.Object,
+	targetObject client.Object,
+	ownerReference []metav1.OwnerReference,
+) (client.Object, error) {
+	objectKey := types.NamespacedName{
+		Namespace: sourceObject.GetNamespace(),
+		Name:      sourceObject.GetName(),
+	}
+
+	err := helper.GetClient().Get(ctx, objectKey, sourceObject)
+	if err != nil {
+		return nil, err
+	}
+
+	var copyObject client.Object
+
+	switch object := sourceObject.(type) {
+	case *corev1.Secret:
+		copySecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      targetObject.GetName(),
+				Namespace: targetObject.GetNamespace(),
+			},
+		}
+
+		_, err = controllerutil.CreateOrPatch(ctx, helper.GetClient(), copySecret, func() error {
+			copySecret.Data = object.Data
+			copySecret.StringData = object.StringData
+			copySecret.Type = object.Type
+			copySecret.SetOwnerReferences(ownerReference)
+
+			checksum, err := common_secret.Hash(copySecret)
+			if err != nil {
+				return err
+			}
+
+			SetChecksumAnnotation(copySecret, checksum)
+
+			return nil
+		})
+
+		copyObject = copySecret
+	case *corev1.ConfigMap:
+		copyConfigMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      targetObject.GetName(),
+				Namespace: targetObject.GetNamespace(),
+			},
+		}
+
+		_, err = controllerutil.CreateOrPatch(ctx, helper.GetClient(), copyConfigMap, func() error {
+			copyConfigMap.Data = object.Data
+			copyConfigMap.BinaryData = object.BinaryData
+			copyConfigMap.SetOwnerReferences(ownerReference)
+
+			checksum, err := common_cm.Hash(copyConfigMap)
+			if err != nil {
+				return err
+			}
+
+			SetChecksumAnnotation(copyConfigMap, checksum)
+
+			return nil
+		})
+
+		copyObject = copyConfigMap
+	default:
+		return nil, errors.New("cannot copy resource (invalid type)")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return copyObject, nil
+}
+
+// SetChecksumAnnotation sets or updates the checksum annotation on the provided
+// object.This function adds or overwrites only the OpenStackLightspeedChecksumAnnotation
+// key, preserving any existing annotations.
+func SetChecksumAnnotation(object client.Object, checksum string) {
+	annotations := object.GetAnnotations()
+	if annotations == nil {
+		annotations = make(map[string]string)
+	}
+
+	annotations[OpenStackLightspeedChecksumAnnotation] = checksum
+	object.SetAnnotations(annotations)
+}
+
+// GetChecksumAnnotation retrieves the checksum annotation from the given object.
+// If the annotation is not found, it returns an empty string.
+func GetChecksumAnnotation(object client.Object) string {
+	annotations := object.GetAnnotations()
+	if annotations == nil {
+		return ""
+	}
+
+	checksum, ok := annotations[OpenStackLightspeedChecksumAnnotation]
+	if !ok {
+		return ""
+	}
+
+	return checksum
+}
+
+// GetDeploymentVolumeSection returns a pointer to the Volume in the Deployment's PodSpec
+// whose name matches the given volumeSectionName. If no such volume is found, it returns nil.
+// This is useful for patching or inspecting a named volume within a Deployment's specification.
+func GetDeploymentVolumeSection(deployment appsv1.Deployment, volumeSectionName string) *corev1.Volume {
+	for i, volume := range deployment.Spec.Template.Spec.Volumes {
+		if volume.Name == volumeSectionName {
+			return &deployment.Spec.Template.Spec.Volumes[i]
+		}
+	}
+
+	return nil
+}
 
 // GetObjectGVKs retrieves the GroupVersionKinds for an clientObject using the
 // provided runtime.Scheme. It returns the list of GVKs and any error encountered.

@@ -27,6 +27,7 @@ const (
 
 	// OpenStackLightspeedContainerImage is the fall-back container image for OpenStackLightspeed
 	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:os-docs-2025.2"
+	MCPServerContainerImage           = "quay.io/openstack-lightspeed/rhos-mcps:latest"
 	MaxTokensForResponseDefault       = 2048
 )
 
@@ -165,6 +166,7 @@ func (instance OpenStackLightspeed) IsReady() bool {
 
 type OpenStackLightspeedDefaults struct {
 	RAGImageURL          string
+	MCPServerImageURL    string
 	MaxTokensForResponse int
 }
 
@@ -176,6 +178,9 @@ func SetupDefaults() {
 	openStackLightspeedDefaults := OpenStackLightspeedDefaults{
 		RAGImageURL: util.GetEnvVar(
 			"RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT", OpenStackLightspeedContainerImage),
+		MCPServerImageURL: util.GetEnvVar(
+			"RELATED_IMAGE_MCP_SERVER_IMAGE_URL_DEFAULT", MCPServerContainerImage,
+		),
 		MaxTokensForResponse: MaxTokensForResponseDefault,
 	}
 
