@@ -21,6 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
@@ -126,11 +127,17 @@ func main() {
 		metricsServerOptions.FilterProvider = filters.WithAuthenticationAndAuthorization
 	}
 
-	watchNamespace, err := getWatchNamespace()
+	watchNamespaces, err := getWatchNamespaces()
 	if err != nil {
 		setupLog.Error(err, "unable to get WatchNamespace, "+
 			"the manager will watch and manage resources in all namespaces")
 		os.Exit(1)
+	}
+
+	defaultNamespaces := make(map[string]cache.Config)
+	for _, namespace := range watchNamespaces {
+		defaultNamespaces[namespace] = cache.Config{}
+		setupLog.Info(fmt.Sprintf("openstack-lightspeed operator watches %s namespace", namespace))
 	}
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
@@ -141,7 +148,7 @@ func main() {
 		LeaderElection:         enableLeaderElection,
 		LeaderElectionID:       "c83b0a4f.lightspeed.openstack.org",
 		Cache: cache.Options{
-			DefaultNamespaces: map[string]cache.Config{watchNamespace: {}},
+			DefaultNamespaces: defaultNamespaces,
 		},
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
@@ -188,8 +195,9 @@ func main() {
 	}
 }
 
-// getWatchNamespace returns the Namespace the operator should be watching for changes
-func getWatchNamespace() (string, error) {
+// getWatchNamespaces returns a list of namespaces the operator should be watching for changes.
+// Note that this functions expects comma separated list in the WATCH_NAMESPACE env var.
+func getWatchNamespaces() ([]string, error) {
 	// WatchNamespaceEnvVar is the constant for env variable WATCH_NAMESPACE
 	// which specifies the Namespace to watch.
 	// An empty value means the operator is running with cluster scope.
@@ -197,7 +205,8 @@ func getWatchNamespace() (string, error) {
 
 	ns, found := os.LookupEnv(watchNamespaceEnvVar)
 	if !found {
-		return "", fmt.Errorf("%s must be set", watchNamespaceEnvVar)
+		return []string{}, fmt.Errorf("%s must be set", watchNamespaceEnvVar)
 	}
-	return ns, nil
+
+	return strings.Split(ns, ","), nil
 }
