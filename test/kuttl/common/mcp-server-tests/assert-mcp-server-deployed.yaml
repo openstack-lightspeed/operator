@@ -1,0 +1,51 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: openshift-lightspeed
+spec:
+  replicas: 1
+status:
+  readyReplicas: 1
+  availableReplicas: 1
+---
+apiVersion: lightspeed.openstack.org/v1beta1
+kind: OpenStackLightspeed
+metadata:
+  name: openstack-lightspeed
+  namespace: openshift-lightspeed
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Ready
+    - type: OCPRAGReady
+      status: "True"
+      reason: Ready
+    - type: OpenShiftLightspeedOperatorReady
+      status: "True"
+      reason: Ready
+    - type: OpenStackLightspeedMCPServerReady
+      status: "True"
+      reason: Ready
+    - type: OpenStackLightspeedReady
+      status: "True"
+      reason: Ready
+---
+apiVersion: ols.openshift.io/v1alpha1
+kind: OLSConfig
+metadata:
+  name: cluster
+spec:
+  mcpServers:
+    - name: openshift-lightspeed-mcp
+      streamableHTTP:
+        url: http://mcp-server-service:8080/openshift
+        headers:
+          OCP_TOKEN: kubernetes
+    - name: openstack-lightspeed-mcp
+      streamableHTTP:
+        url: http://mcp-server-service:8080/openstack
+  featureGates:
+    - MCPServer

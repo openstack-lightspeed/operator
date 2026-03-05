@@ -1,0 +1,6 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl patch openstackcontrolplane openstack-control-plane -n openstack --type=merge --subresource=status --patch '{"status":{"tls":{"caBundleSecretName":"combined-ca-bundle"}}}'
+    ignoreFailure: false

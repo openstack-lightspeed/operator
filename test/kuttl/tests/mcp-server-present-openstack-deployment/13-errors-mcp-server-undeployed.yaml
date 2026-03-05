@@ -1,0 +1,30 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: openshift-lightspeed
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openstack-config
+  namespace: openshift-lightspeed
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openstack-config-secret
+  namespace: openshift-lightspeed
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: combined-ca-bundle
+  namespace: openshift-lightspeed
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-server-config
+  namespace: openshift-lightspeed
