@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -151,4 +152,28 @@ func ResolveOCPVersion(detectedVersion, overrideVersion string, enableOCPRAG boo
 
 	// Fallback to latest for unsupported versions
 	return OCPVersionLatest, true, nil
+}
+
+// BuildRAGConfigs builds the RAG configuration array.
+// OpenStack RAG is always included first.
+// OCP RAG is added if ocpVersion is provided.
+func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []interface{} {
+	rags := []interface{}{
+		// OpenStack RAG
+		map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": OpenStackLightspeedVectorDBPath,
+		},
+	}
+
+	// Add OCP RAG if enabled
+	if ocpVersion != "" {
+		rags = append(rags, map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": GetOCPVectorDBPath(ocpVersion),
+			"indexID":   GetOCPIndexName(ocpVersion),
+		})
+	}
+
+	return rags
 }
