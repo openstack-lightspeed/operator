@@ -238,9 +238,5 @@ make kuttl-test-run
 ```
 
 **Important Notes:**
-- The tests use the `openshift-lightspeed` namespace to test in the exact namespace
-where the OLS operator is expected to operate.
-- The correct behavior of the OLS operator is not guaranteed outside of the
-`openshift-lightspeed` namespace.
 - Ensure the namespace is clean before running tests to avoid resource conflicts
 or test failures.

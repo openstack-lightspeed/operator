@@ -49,15 +49,6 @@ spec:
           spec:
             description: OpenStackLightspeedSpec defines the desired state of OpenStackLightspeed
             properties:
-              catalogSourceName:
-                default: redhat-operators
-                description: Name of the CatalogSource that contains the OLS Operator
-                type: string
-              catalogSourceNamespace:
-                default: openshift-marketplace
-                description: Namespace where the CatalogSource containing the OLS
-                  operator is located
-                type: string
               enableOCPRAG:
                 default: false
                 description: Enables automatic OCP documentation based on cluster

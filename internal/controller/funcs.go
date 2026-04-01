@@ -1,5 +1,5 @@
 /*
-Copyright 2025.
+Copyright 2026.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,55 +18,29 @@ package controller
 
 import (
 	"context"
-	"fmt"
-	"math/rand"
-	"strconv"
-
-	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
-
 	_ "embed"
+	"errors"
+	"fmt"
+	"strings"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-const (
-	// OpenStackLightspeedDefaultProvider - contains default name for the provider created in OLSConfig
-	// by openstack-operator.
-	OpenStackLightspeedDefaultProvider = "openstack-lightspeed-provider"
-
-	// OpenStackLightspeedOwnerIDLabel - name of a label that contains ID of OpenStackLightspeed instance
-	// that manages the OLSConfig.
-	OpenStackLightspeedOwnerIDLabel = "openstack.org/lightspeed-owner-id"
-
-	// OpenStackLightspeedVectorDBPath - path inside of the container image where the vector DB are
-	// located
-	OpenStackLightspeedVectorDBPath = "/rag/vector_db/os_product_docs"
-
-	// OpenStackLightspeedJobName - name of the pod that is used to discover environment variables inside of the RAG
-	// container image
-	OpenStackLightspeedJobName = "openstack-lightspeed"
-
-	// OLSConfigName - OLS forbids other name for OLSConfig instance than OLSConfigName
-	OLSConfigName = "cluster"
-)
-
-// IsOwnedBy returns true if 'object' is owned by 'owner' based on OwnerReference UID.
-func IsOwnedBy(object metav1.Object, owner metav1.Object) bool {
-	for _, ref := range object.GetOwnerReferences() {
-		if ref.UID == owner.GetUID() {
-			return true
-		}
-	}
-	return false
+// toPtr returns a pointer to the given value.
+func toPtr[T any](v T) *T {
+	return &v
 }
 
-// GetRawClient returns a raw client that is not restricted to WATCH_NAMESPACE.
+// getRawClient returns a raw client that is not restricted to WATCH_NAMESPACE.
 // This is useful for operations that need to query resources across all namespaces
 // cluster wide.
-func GetRawClient(helper *common_helper.Helper) (client.Client, error) {
+func getRawClient(helper *common_helper.Helper) (client.Client, error) {
 	cfg, err := config.GetConfig()
 	if err != nil {
 		return nil, err
@@ -78,4 +52,120 @@ func GetRawClient(helper *common_helper.Helper) (client.Client, error) {
 	}
 
 	return rawClient, nil
+}
+
+// generateAppServerSelectorLabels returns a map of labels used as selectors
+// for the application server pods.
+func generateAppServerSelectorLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/component":  "app-server",
+		"app.kubernetes.io/managed-by": "openstack-lightspeed-operator",
+		"app.kubernetes.io/name":       "openstack-lightspeed-app-server",
+		"app.kubernetes.io/part-of":    "openstack-lightspeed",
+	}
+}
+
+// getConfigMapResourceVersion retrieves the resource version of a ConfigMap.
+func getConfigMapResourceVersion(ctx context.Context, h *common_helper.Helper, name string, namespace string) (string, error) {
+	rawClient, err := getRawClient(h)
+	if err != nil {
+		return "", fmt.Errorf("failed to get raw client: %w", err)
+	}
+
+	cm := &corev1.ConfigMap{}
+	err = rawClient.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, cm)
+	if err != nil {
+		return "", fmt.Errorf("failed to get configmap %s: %w", name, err)
+	}
+	return cm.ResourceVersion, nil
+}
+
+// providerNameToEnvVarName converts a provider name to a valid environment variable name.
+// It uppercases the string and replaces hyphens and dots with underscores.
+func providerNameToEnvVarName(providerName string) string {
+	name := strings.ToUpper(providerName)
+	name = strings.ReplaceAll(name, "-", "_")
+	name = strings.ReplaceAll(name, ".", "_")
+	return name
+}
+
+// getPostgresCAConfigVolume returns a Volume for the Postgres CA certificate ConfigMap.
+func getPostgresCAConfigVolume() corev1.Volume {
+	defaultMode := VolumeDefaultMode
+	return corev1.Volume{
+		Name: PostgresCAVolume,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: OpenStackLightspeedCAConfigMap,
+				},
+				DefaultMode: &defaultMode,
+			},
+		},
+	}
+}
+
+// getPostgresCAVolumeMount returns a VolumeMount for the Postgres CA certificate.
+func getPostgresCAVolumeMount() corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      PostgresCAVolume,
+		MountPath: OpenStackLightspeedAppCertsMountRoot + "/postgres-ca",
+		ReadOnly:  true,
+	}
+}
+
+// getPostgresCAVolumeMountWithPath returns a VolumeMount for the Postgres CA certificate
+// at the specified mount path. Used by the postgres container itself.
+func getPostgresCAVolumeMountWithPath(mountPath string) corev1.VolumeMount {
+	return corev1.VolumeMount{
+		Name:      PostgresCAVolume,
+		MountPath: mountPath,
+		ReadOnly:  true,
+	}
+}
+
+// generatePostgresSelectorLabels returns selector labels for Postgres components.
+func generatePostgresSelectorLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/component":  "postgres-server",
+		"app.kubernetes.io/managed-by": "openstack-lightspeed-operator",
+		"app.kubernetes.io/name":       "openstack-lightspeed-service-postgres",
+		"app.kubernetes.io/part-of":    "openstack-lightspeed",
+	}
+}
+
+// getResourcesOrDefault returns the provided resource requirements if non-nil,
+// otherwise returns the given default resource requirements.
+func getResourcesOrDefault(custom *corev1.ResourceRequirements, defaults corev1.ResourceRequirements) corev1.ResourceRequirements {
+	if custom != nil {
+		return *custom
+	}
+	return defaults
+}
+
+// isDeploymentReady checks whether the provided deployment is ready by verifying
+// that the deployment's observed generation matches the current generation and
+// all replicas (updated, available, and total) match the desired count.
+func isDeploymentReady(deploy *appsv1.Deployment) bool {
+	if deploy.Generation > deploy.Status.ObservedGeneration {
+		return false
+	}
+
+	return deploy.Status.UpdatedReplicas == *deploy.Spec.Replicas &&
+		deploy.Status.AvailableReplicas == *deploy.Spec.Replicas &&
+		deploy.Status.Replicas == *deploy.Spec.Replicas
+}
+
+// getDeployment retrieves deployment from the cluster
+func getDeployment(ctx context.Context, h *common_helper.Helper, name string, namespace string) (*appsv1.Deployment, error) {
+	deployment := &appsv1.Deployment{}
+	err := h.GetClient().Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, deployment)
+	if err != nil {
+		if k8s_errors.IsNotFound(err) {
+			return &appsv1.Deployment{}, errors.New("deployment not found")
+		}
+		return &appsv1.Deployment{}, fmt.Errorf("failed to get deployment %s: %w", name, err)
+	}
+
+	return deployment, nil
 }

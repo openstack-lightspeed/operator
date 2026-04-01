@@ -24,8 +24,13 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	operatorsv1alpha1 "github.com/operator-framework/api/pkg/operators/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
+	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -53,16 +58,18 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=lightspeed.openstack.org,resources=openstacklightspeeds,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=lightspeed.openstack.org,resources=openstacklightspeeds/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=lightspeed.openstack.org,resources=openstacklightspeeds/finalizers,verbs=update
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;patch;update;delete;deletecollection
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;patch;update;delete;deletecollection
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,namespace=openstack-lightspeed,verbs=update;patch;delete
+// +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update
+// +kubebuilder:rbac:groups=apps,resources=deployments,namespace=openstack-lightspeed,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups="",resources=configmaps,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update;delete
+// +kubebuilder:rbac:groups="",resources=secrets,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update;delete;deletecollection
+// +kubebuilder:rbac:groups="",resources=services,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch
 
-// Reconcile is part of the main kubernetes reconciliation loop which aims to
-// move the current state of the cluster closer to the desired state.
-// TODO(user): Modify the Reconcile function to compare the state specified by
-// the OpenStackLightspeed object against the actual cluster state, and then
-// perform operations to make the cluster state reflect the state specified by
-// the user.
-//
-// For more details, check Reconcile and its Result here:
-// - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.18.4/pkg/reconcile
 func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	Log := r.GetLogger(ctx)
 	Log.Info("OpenStackLightspeed Reconciling")
@@ -132,11 +139,15 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 	instance.Status.Conditions.Init(&cl)
 	instance.Status.ObservedGeneration = instance.Generation
 
+	// TODO(lpiwowar): Use the resolve OCP version when we add the RAG deployment
 	// OCP Version Detection and Resolution - must be done early so status field is always set
-	r.resolveOCPVersion(ctx, helper, instance)
+	_ = r.resolveOCPVersion(ctx, helper, instance)
 
 	if !instance.DeletionTimestamp.IsZero() {
-		return r.reconcileDelete(ctx, helper, instance)
+		if err := r.reconcileDelete(ctx, helper, instance); err != nil {
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
 	}
 
 	if instance.DeletionTimestamp.IsZero() && controllerutil.AddFinalizer(instance, helper.GetFinalizer()) {
@@ -151,96 +162,25 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		instance.Spec.MaxTokensForResponse = apiv1beta1.OpenStackLightspeedDefaultValues.MaxTokensForResponse
 	}
 
-	Log.Info("OpenStackLightspeed Reconciled successfully")
-	return ctrl.Result{}, nil
-}
-
-// resolveOCPVersion detects and resolves the OCP version to use for RAG configuration.
-// Returns the active OCP version to use (or empty string if OCP RAG is disabled).
-func (r *OpenStackLightspeedReconciler) resolveOCPVersion(
-	ctx context.Context,
-	helper *common_helper.Helper,
-	instance *apiv1beta1.OpenStackLightspeed,
-) string {
-	Log := helper.GetLogger()
-
-	// If OCP RAG is disabled, mark condition as True with "disabled" message
-	if !instance.Spec.EnableOCPRAG {
-		instance.Status.Conditions.MarkTrue(
-			apiv1beta1.OCPRAGCondition,
-			apiv1beta1.OCPRAGDisabledMessage,
-		)
-		instance.Status.ActiveOCPRAGVersion = ""
-		return ""
+	reconcileTasks := []ReconcileTask{
+		{Name: "PostgresResources", Task: ReconcilePostgresResources},
+		{Name: "PostgresDeployment", Task: ReconcilePostgresDeployment},
+		{Name: "LCoreResources", Task: ReconcileLCoreResources},
+		{Name: "LCoreDeployment", Task: ReconcileLCoreDeployment},
 	}
 
-	// Step 1: Detect cluster version
-	detectedVersion, err := DetectOCPVersion(ctx, helper)
-
-	if err != nil {
-		Log.Info("Failed to detect OCP version, disabling OCP RAG", "error", err)
-		cond := condition.FalseCondition(
-			apiv1beta1.OCPRAGCondition,
+	if err := ReconcileTasks(helper, ctx, instance, reconcileTasks); err != nil {
+		instance.Status.Conditions.Set(condition.FalseCondition(
+			apiv1beta1.OpenStackLightspeedReadyCondition,
 			condition.ErrorReason,
-			condition.SeverityError,
-			apiv1beta1.OCPRAGDetectionFailedMessage,
-		)
-		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPRAGDetectionFailedMessage, err.Error())
-		instance.Status.Conditions.Set(cond)
-		instance.Status.ActiveOCPRAGVersion = ""
-		return ""
+			condition.SeverityWarning,
+			apiv1beta1.DeploymentCheckFailedMessage,
+			err.Error(),
+		))
+		return ctrl.Result{}, err
 	}
 
-	Log.Info("Detected OCP cluster version", "version", detectedVersion)
-
-	// Step 2: Resolve which version to use (with override and fallback)
-	activeVersion, isFallback, err := ResolveOCPVersion(
-		detectedVersion,
-		instance.Spec.OCPRAGVersionOverride,
-		instance.Spec.EnableOCPRAG,
-	)
-
-	if err != nil {
-		// Invalid override
-		Log.Error(err, "Invalid OCP version configuration")
-		cond := condition.FalseCondition(
-			apiv1beta1.OCPRAGCondition,
-			condition.ErrorReason,
-			condition.SeverityError,
-			apiv1beta1.OCPRAGOverrideInvalidMessage,
-		)
-		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPRAGOverrideInvalidMessage, err.Error())
-		instance.Status.Conditions.Set(cond)
-		instance.Status.ActiveOCPRAGVersion = ""
-		return ""
-	}
-
-	// Step 3: Update status and conditions based on resolution
-	instance.Status.ActiveOCPRAGVersion = activeVersion
-
-	if isFallback {
-		Log.Info("Using 'latest' OCP documentation as fallback",
-			"detectedVersion", detectedVersion,
-			"supportedVersions", SupportedOCPVersions)
-
-		cond := condition.TrueCondition(
-			apiv1beta1.OCPRAGCondition,
-			"Fallback",
-		)
-		cond.Message = fmt.Sprintf(apiv1beta1.OCPRAGVersionFallbackMessage,
-			detectedVersion, SupportedOCPVersions)
-		instance.Status.Conditions.Set(cond)
-	} else {
-		Log.Info("Using OCP RAG documentation", "version", activeVersion)
-		cond := condition.TrueCondition(
-			apiv1beta1.OCPRAGCondition,
-			"Resolved",
-		)
-		cond.Message = fmt.Sprintf(apiv1beta1.OCPRAGVersionResolvedMessage, activeVersion)
-		instance.Status.Conditions.Set(cond)
-	}
-
-	return activeVersion
+	return r.reconcileStatus(ctx, helper, instance)
 }
 
 // reconcileDelete reconciles the deletion of OpenStackLightspeed instance
@@ -248,13 +188,69 @@ func (r *OpenStackLightspeedReconciler) reconcileDelete(
 	ctx context.Context,
 	helper *common_helper.Helper,
 	instance *apiv1beta1.OpenStackLightspeed,
-) (ctrl.Result, error) {
+) error {
 	Log := r.GetLogger(ctx)
 	Log.Info("OpenStackLightspeed Reconciling Delete")
+
+	// Delete cluster-scoped resources using fail-fast pattern
+	deletionTasks := []ReconcileTask{
+		{Name: "DeleteSARClusterRoleBinding", Task: reconcileDeleteClusterRoleBindingByLabels},
+		{Name: "DeleteSARClusterRole", Task: reconcileDeleteClusterRoleByLabels},
+	}
+
+	// Execute deletion tasks in order (fail-fast: stop on first error)
+	if err := ReconcileTasksFailFast(helper, ctx, instance, deletionTasks); err != nil {
+		Log.Error(err, "failed to delete cluster-scoped resources")
+		return err
+	}
 
 	controllerutil.RemoveFinalizer(instance, helper.GetFinalizer())
 
 	Log.Info("OpenStackLightspeed Reconciling Delete completed")
+	return nil
+}
+
+func (r *OpenStackLightspeedReconciler) reconcileStatus(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) (ctrl.Result, error) {
+	deployments := []string{
+		PostgresDeploymentName,
+		LCoreDeploymentName,
+	}
+	for _, deploymentName := range deployments {
+		deployment, err := getDeployment(ctx, helper, deploymentName, instance.Namespace)
+		if err != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				apiv1beta1.OpenStackLightspeedReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				apiv1beta1.DeploymentCheckFailedMessage,
+				err.Error(),
+			))
+			return ctrl.Result{}, err
+		}
+
+		if !isDeploymentReady(deployment) {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				apiv1beta1.OpenStackLightspeedReadyCondition,
+				condition.RequestedReason,
+				condition.SeverityInfo,
+				apiv1beta1.DeploymentsNotReadyMessage,
+				deploymentName,
+			))
+			return ctrl.Result{RequeueAfter: ResourceCreationTimeout}, nil
+		}
+	}
+
+	instance.Status.Conditions.MarkTrue(
+		apiv1beta1.OpenStackLightspeedReadyCondition,
+		apiv1beta1.OpenStackLightspeedReadyMessage,
+	)
+
+	helper.GetLogger().Info("OpenStackLightspeed Reconciled successfully")
+
 	return ctrl.Result{}, nil
 }
 
@@ -272,12 +268,13 @@ func (r *OpenStackLightspeedReconciler) SetupWithManager(mgr ctrl.Manager) error
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&apiv1beta1.OpenStackLightspeed{}).
 		Owns(&operatorsv1alpha1.ClusterServiceVersion{}).
-		Owns(&operatorsv1alpha1.Subscription{}).
-		Watches(
-			&operatorsv1alpha1.InstallPlan{},
-			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspeeds),
-			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
-		).
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&rbacv1.ClusterRole{}).
+		Owns(&rbacv1.ClusterRoleBinding{}).
+		Owns(&corev1.Service{}).
+		Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Secret{}).
 		Watches(
 			clusterVersion,
 			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspeeds),

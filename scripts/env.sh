@@ -1,2 +1,2 @@
 #!/bin/bash
-export WATCH_NAMESPACE="openshift-lightspeed"
+export WATCH_NAMESPACE="openstack-lightspeed"

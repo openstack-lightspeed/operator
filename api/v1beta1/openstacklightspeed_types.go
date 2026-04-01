@@ -23,11 +23,20 @@ import (
 )
 
 const (
-	// Container image fall-back defaults
-
 	// OpenStackLightspeedContainerImage is the fall-back container image for OpenStackLightspeed
 	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:os-docs-2025.2"
-	MaxTokensForResponseDefault       = 2048
+
+	// LCoreContainerImage is the fall-back container image for LCore
+	LCoreContainerImage = "quay.io/lightspeed-core/lightspeed-stack:latest"
+
+	// ExporterContainerImage is the fall-back container image for the Dataverse Exporter
+	ExporterContainerImage = "quay.io/lightspeed-core/lightspeed-to-dataverse-exporter:latest"
+
+	// PostgresContainerImage is the fall-back container image for PostgreSQL
+	PostgresContainerImage = "registry.redhat.io/rhel9/postgresql-16:latest"
+
+	// MaxTokensForResponseDefault is the default maximum number of tokens that should be used for response
+	MaxTokensForResponseDefault = 2048
 )
 
 // OpenStackLightspeedSpec defines the desired state of OpenStackLightspeed
@@ -83,16 +92,6 @@ type OpenStackLightspeedCore struct {
 	MaxTokensForResponse int `json:"maxTokensForResponse,omitempty"`
 
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="openshift-marketplace"
-	// Namespace where the CatalogSource containing the OLS operator is located
-	CatalogSourceNamespace string `json:"catalogSourceNamespace"`
-
-	// +kubebuilder:validation:Optional
-	// +kubebuilder:default="redhat-operators"
-	// Name of the CatalogSource that contains the OLS Operator
-	CatalogSourceName string `json:"catalogSourceName"`
-
-	// +kubebuilder:validation:Optional
 	// Project ID for LLM providers that require it (e.g., WatsonX)
 	LLMProjectID string `json:"llmProjectID,omitempty"`
 
@@ -131,10 +130,26 @@ type OpenStackLightspeedStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:printcolumn:name="Status",type="string",JSONPath=".status.conditions[0].status",description="Status"
 // +kubebuilder:printcolumn:name="Message",type="string",JSONPath=".status.conditions[0].message",description="Message"
-// +operator-sdk:csv:customresourcedefinitions:resources={{OLSConfig,v1alpha1,cluster}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1,lightspeed-stack-deployment}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Deployment,v1,lightspeed-postgres-server}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Service,v1,lightspeed-app-server}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Service,v1,lightspeed-postgres-server}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{ConfigMap,v1,llama-stack-config}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{ConfigMap,v1,lightspeed-stack-config}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{ConfigMap,v1,lightspeed-postgres-conf}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Secret,v1,lightspeed-postgres-secret}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Secret,v1,lightspeed-postgres-bootstrap}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Secret,v1,metrics-reader-token}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Secret,v1,lightspeed-tls}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{Secret,v1,lightspeed-postgres-certs}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{ServiceAccount,v1,lightspeed-app-server}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{NetworkPolicy,v1,lightspeed-app-server}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{NetworkPolicy,v1,lightspeed-postgres-server}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{ClusterRole,v1,lightspeed-app-server-sar-role}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{ClusterRoleBinding,v1,lightspeed-app-server-sar-role-binding}}
 // +operator-sdk:csv:customresourcedefinitions:resources={{Subscription,v1alpha1}}
 // +operator-sdk:csv:customresourcedefinitions:resources={{ClusterServiceVersion,v1alpha1}}
-// +operator-sdk:csv:customresourcedefinitions:resources={{InstallPlan,v1alpha}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{InstallPlan,v1alpha1}}
 
 // OpenStackLightspeed is the Schema for the openstacklightspeeds API
 type OpenStackLightspeed struct {
@@ -165,6 +180,9 @@ func (instance OpenStackLightspeed) IsReady() bool {
 
 type OpenStackLightspeedDefaults struct {
 	RAGImageURL          string
+	LCoreImageURL        string
+	ExporterImageURL     string
+	PostgresImageURL     string
 	MaxTokensForResponse int
 }
 
@@ -176,6 +194,12 @@ func SetupDefaults() {
 	openStackLightspeedDefaults := OpenStackLightspeedDefaults{
 		RAGImageURL: util.GetEnvVar(
 			"RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT", OpenStackLightspeedContainerImage),
+		LCoreImageURL: util.GetEnvVar(
+			"RELATED_IMAGE_LCORE_IMAGE_URL_DEFAULT", LCoreContainerImage),
+		ExporterImageURL: util.GetEnvVar(
+			"RELATED_IMAGE_EXPORTER_IMAGE_URL_DEFAULT", ExporterContainerImage),
+		PostgresImageURL: util.GetEnvVar(
+			"RELATED_IMAGE_POSTGRES_IMAGE_URL_DEFAULT", PostgresContainerImage),
 		MaxTokensForResponse: MaxTokensForResponseDefault,
 	}
 
