@@ -151,9 +151,14 @@ func isDeploymentReady(deploy *appsv1.Deployment) bool {
 		return false
 	}
 
-	return deploy.Status.UpdatedReplicas == *deploy.Spec.Replicas &&
-		deploy.Status.AvailableReplicas == *deploy.Spec.Replicas &&
-		deploy.Status.Replicas == *deploy.Spec.Replicas
+	replicas := int32(1)
+	if deploy.Spec.Replicas != nil {
+		replicas = *deploy.Spec.Replicas
+	}
+
+	return deploy.Status.UpdatedReplicas == replicas &&
+		deploy.Status.AvailableReplicas == replicas &&
+		deploy.Status.Replicas == replicas
 }
 
 // getDeployment retrieves deployment from the cluster

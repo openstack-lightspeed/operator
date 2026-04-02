@@ -7,7 +7,7 @@ kind: Secret
 type: Opaque
 metadata:
   name: openstack-lightspeed-apitoken
-  namespace: openshift-lightspeed
+  namespace: openstack-lightspeed
 stringData:
   apitoken: secret
 ---
@@ -16,7 +16,7 @@ kind: ConfigMap
 type: Opaque
 metadata:
   name: openstack-lightspeed-cert
-  namespace: openshift-lightspeed
+  namespace: openstack-lightspeed
 data:
   cert: |
     -----BEGIN CERTIFICATE-----

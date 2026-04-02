@@ -1,0 +1,34 @@
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openstack-lightspeed-apitoken-update
+  namespace: openstack-lightspeed
+type: Opaque
+stringData:
+  apitoken: xxx
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openstack-lightspeed-cert-update
+  namespace: openstack-lightspeed
+---
+apiVersion: lightspeed.openstack.org/v1beta1
+kind: OpenStackLightspeed
+metadata:
+  name: openstack-lightspeed
+  namespace: openstack-lightspeed
+spec:
+  llmEndpoint: http://mock-llm-api-server-pod-UPDATE:8000/v1
+  llmEndpointType: rhoai_vllm
+  llmCredentials: openstack-lightspeed-apitoken-update
+  modelName: ibm-granite/granite-3.1-8b-instruct-UPDATE
+  tlsCACertBundle: openstack-lightspeed-cert-update
+  llmProjectID: test-project-id-UPDATE
+  llmDeploymentName: test-deployment-name-UPDATE
+  llmAPIVersion: v1.1
+  feedbackDisabled: true
+  transcriptsDisabled: true
+  enableOCPRAG: true
+  ocpVersionOverride: "4.16"

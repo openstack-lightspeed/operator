@@ -5,5 +5,5 @@ delete:
   - apiVersion: lightspeed.openstack.org/v1beta1
     kind: OpenStackLightspeed
     name: openstack-lightspeed
-    namespace: openshift-lightspeed
+    namespace: openstack-lightspeed
 

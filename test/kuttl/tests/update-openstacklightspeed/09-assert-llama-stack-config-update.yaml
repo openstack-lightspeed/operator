@@ -1,0 +1,149 @@
+##############################################################################
+#  Assert llama-stack-config content after CR update (rhoai_vllm + OCP RAG)  #
+##############################################################################
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llama-stack-config
+  namespace: openstack-lightspeed
+data:
+  run.yaml: |
+    apis:
+    - agents
+    - files
+    - inference
+    - safety
+    - tool_runtime
+    - vector_io
+    benchmarks: []
+    container_image: null
+    datasets: []
+    external_providers_dir: null
+    image_name: openstack-lightspeed-configuration
+    inference_store:
+      db_path: .llama/distributions/ollama/inference_store.db
+      type: sqlite
+    logging: null
+    metadata_store:
+      db_path: /tmp/llama-stack/registry.db
+      namespace: null
+      type: sqlite
+    models:
+    - metadata:
+        embedding_dimension: 768
+      model_id: sentence-transformers/all-mpnet-base-v2
+      model_type: embedding
+      provider_id: sentence-transformers
+      provider_model_id: sentence-transformers/all-mpnet-base-v2
+    - metadata:
+        max_tokens: 2048
+      model_id: ibm-granite/granite-3.1-8b-instruct-UPDATE
+      model_type: llm
+      provider_id: openstack-lightspeed-provider
+      provider_model_id: ibm-granite/granite-3.1-8b-instruct-UPDATE
+    providers:
+      agents:
+      - config:
+          persistence:
+            agent_state:
+              backend: kv_default
+              namespace: agent_state
+              table_name: agent_state
+            responses:
+              backend: sql_default
+              namespace: agent_responses
+              table_name: agent_responses
+        provider_id: meta-reference
+        provider_type: inline::meta-reference
+      files:
+      - config:
+          metadata_store:
+            backend: sql_default
+            namespace: files_metadata
+            table_name: files_metadata
+          storage_dir: /tmp/llama-stack-files
+        provider_id: localfs
+        provider_type: inline::localfs
+      inference:
+      - config: {}
+        provider_id: sentence-transformers
+        provider_type: inline::sentence-transformers
+      - config:
+          api_token: ${env.OPENSTACK_LIGHTSPEED_PROVIDER_API_KEY}
+          base_url: http://mock-llm-api-server-pod-UPDATE:8000/v1
+        provider_id: openstack-lightspeed-provider
+        provider_type: remote::vllm
+      safety:
+      - config:
+          excluded_categories: []
+        provider_id: llama-guard
+        provider_type: inline::llama-guard
+      tool_runtime:
+      - config: {}
+        provider_id: model-context-protocol
+        provider_type: remote::model-context-protocol
+      - config: {}
+        provider_id: rag-runtime
+        provider_type: inline::rag-runtime
+      vector_io:
+      - config:
+          kvstore:
+            backend: sql_default
+            table_name: vector_store
+          persistence:
+            backend: kv_default
+            namespace: vector_persistence
+        provider_id: faiss
+        provider_type: inline::faiss
+    scoring_fns: []
+    server:
+      auth: null
+      host: 0.0.0.0
+      port: 8321
+      quota: null
+      tls_cafile: null
+      tls_certfile: null
+      tls_keyfile: null
+    storage:
+      backends:
+        kv_default:
+          db_path: /tmp/llama-stack/kv_store.db
+          type: kv_sqlite
+        postgres_backend:
+          ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
+          gss_encmode: disable
+          host: lightspeed-postgres-server.openstack-lightspeed.svc
+          password: ${env.POSTGRES_PASSWORD}
+          port: 5432
+          ssl_mode: require
+          type: sql_postgres
+          user: postgres
+        sql_default:
+          db_path: /tmp/llama-stack/sql_store.db
+          type: sql_sqlite
+      stores:
+        conversations:
+          backend: postgres_backend
+          table_name: openai_conversations
+        inference:
+          backend: sql_default
+          table_name: inference_store
+        metadata:
+          backend: kv_default
+          namespace: registry
+    telemetry:
+      enabled: false
+    tool_groups:
+    - provider_id: rag-runtime
+      toolgroup_id: builtin::rag
+    vector_dbs:
+    - embedding_dimension: 768
+      embedding_model: sentence-transformers/all-mpnet-base-v2
+      provider_id: faiss
+      vector_db_id: rag_rag-content
+    - embedding_dimension: 768
+      embedding_model: sentence-transformers/all-mpnet-base-v2
+      provider_id: faiss
+      vector_db_id: ocp-product-docs-4_16
+    version: "2"
