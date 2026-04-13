@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - lcore-migration
   workflow_dispatch: {}
 
 env:
@@ -32,7 +33,13 @@ jobs:
           BUNDLE_IMAGE=${IMAGE_TAG_BASE}-bundle:v${VERSION}
           CATALOG_IMAGE=${IMAGE_TAG_BASE}-catalog:v${VERSION}
 
-          LATEST_TAG=latest
+          # `main` branch    -> `latest` tag
+          # any other branch -> `[branch-name]-latest` tag
+          if [[ "${{ github.ref_name }}" == "main" ]]; then
+            LATEST_TAG=latest
+          else
+            LATEST_TAG=${{ github.ref_name }}-latest
+          fi
           OPERATOR_IMAGE_LATEST=${IMAGE_TAG_BASE}:${LATEST_TAG}
           BUNDLE_IMAGE_LATEST=${IMAGE_TAG_BASE}-bundle:${LATEST_TAG}
           CATALOG_IMAGE_LATEST=${IMAGE_TAG_BASE}-catalog:${LATEST_TAG}
