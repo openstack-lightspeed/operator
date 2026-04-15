@@ -17,6 +17,8 @@ metadata:
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
     operatorframework.io/suggested-namespace: openshift-lightspeed
+    operators.openshift.io/valid-subscription: '["OpenShift Container Platform", "OpenShift
+      Platform Plus"]'
     repository: https://github.com/openstack-lightspeed/operator
   name: openstack-lightspeed-operator.v0.0.0
   namespace: openshift-lightspeed
