@@ -62,7 +62,7 @@ jobs:
           operator-sdk: 1.38.0
 
       - name: Log in to Quay
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
