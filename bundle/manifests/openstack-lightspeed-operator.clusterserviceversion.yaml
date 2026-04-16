@@ -101,9 +101,38 @@ spec:
       clusterPermissions:
       - rules:
         - apiGroups:
+          - ""
+          resources:
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apiextensions.k8s.io
+          resources:
+          - customresourcedefinitions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
           - config.openshift.io
           resources:
           - clusterversions
+          verbs:
+          - get
+          - list
+          - watch
+        - apiGroups:
+          - core.openstack.org
+          resources:
+          - openstackcontrolplanes
           verbs:
           - get
           - list
@@ -216,6 +245,8 @@ spec:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT
                   value: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+                - name: RELATED_IMAGE_MCP_SERVER_IMAGE_URL_DEFAULT
+                  value: quay.io/openstack-lightspeed/rhos-mcps:latest
                 image: quay.io/openstack-lightspeed/operator:latest
                 livenessProbe:
                   httpGet:
@@ -343,4 +374,6 @@ spec:
   relatedImages:
   - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
     name: openstack-lightspeed-image-url-default
+  - image: quay.io/openstack-lightspeed/rhos-mcps:latest
+    name: mcp-server-image-url-default
   version: 0.0.1

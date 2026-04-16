@@ -1,0 +1,6 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - command: kubectl apply --server-side -f https://raw.githubusercontent.com/openstack-k8s-operators/openstack-operator/main/config/crd/bases/core.openstack.org_openstackcontrolplanes.yaml
+    ignoreFailure: false

@@ -13,5 +13,7 @@ status:
       status: "True"
     - type: OpenShiftLightspeedOperatorReady
       status: "True"
+    - type: OpenStackLightspeedMCPServerReady
+      status: "True"
     - type: OpenStackLightspeedReady
       status: "True"

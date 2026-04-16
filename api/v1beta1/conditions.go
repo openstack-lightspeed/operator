@@ -28,6 +28,12 @@ const (
 	// operational and it can be used by OpenStack Lightspeed operator.
 	OpenShiftLightspeedOperatorReadyCondition condition.Type = "OpenShiftLightspeedOperatorReady"
 
+	// OpenStackLightspeedMCPServerReadyCondition is set to True when the reconciliation of the MCP server succeeds.
+	// This can indicate either that no OpenStack deployment was detected (thus, no MCP server was needed), or that an
+	// MCP server was successfully deployed because an OpenStack deployment was present. If set to False, it means that
+	// there was a failure during the MCP server deployment process.
+	OpenStackLightspeedMCPServerReadyCondition condition.Type = "OpenStackLightspeedMCPServerReady"
+
 	// OCPRAGCondition Status=True condition which indicates the OCP RAG version resolution status
 	OCPRAGCondition condition.Type = "OCPRAGReady"
 )
@@ -63,4 +69,13 @@ const (
 
 	// OCPRAGOverrideInvalidMessage
 	OCPRAGOverrideInvalidMessage = "Invalid OCP RAG version override"
+
+	// OpenStackLightspeedMCPServerInitMessage
+	OpenStackLightspeedMCPServerInitMessage = "MCP server deployment has not resolved"
+
+	// OpenStackLightspeedMCPServerInitNoDeployment
+	OpenStackLightspeedMCPServerNoDeployment = "MCP server not deployed (no OpenStack instance detected)"
+
+	// OpenStackLightspeedMCPServerDeployed
+	OpenStackLightspeedMCPServerDeployed = "MCP server is ready"
 )

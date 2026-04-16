@@ -1,0 +1,22 @@
+---
+ip: 0.0.0.0
+port: 8080
+debug: false
+workers: 1
+processes_pool_size: 10
+
+openstack:
+  allow_write: false
+  ca_cert: ./tls-ca-bundle.pem
+  insecure: false
+
+openshift:
+  allow_write: false
+  insecure: false
+
+mcp_transport_security:
+  enable_dns_rebinding_protection: false
+  allowed_hosts:
+    - "*:*"
+  allowed_origins:
+    - "http://*:*"

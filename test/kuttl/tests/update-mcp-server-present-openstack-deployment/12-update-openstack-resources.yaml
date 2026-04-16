@@ -1,0 +1,44 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openstack-config
+  namespace: openstack
+data:
+  clouds.yaml: |
+    clouds:
+      default:
+        auth:
+          auth_url: http://keystone-updated.openstack.svc:5000
+          project_name: admin-updated
+          username: admin
+          user_domain_name: Default
+          project_domain_name: Default
+        region_name: regionTwo
+        interface: public
+        identity_api_version: 3
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: openstack-config-secret
+  namespace: openstack
+type: Opaque
+stringData:
+  secure.yaml: |
+    clouds:
+      default:
+        auth:
+          password: "test-password-67890-UPDATED"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: combined-ca-bundle
+  namespace: openstack
+type: Opaque
+stringData:
+  tls-ca-bundle.pem: |
+    -----BEGIN CERTIFICATE-----
+    cert update
+    -----END CERTIFICATE-----

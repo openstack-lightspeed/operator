@@ -1,0 +1,20 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+delete:
+  - apiVersion: core.openstack.org/v1beta1
+    kind: OpenStackControlPlane
+    name: openstack-control-plane
+    namespace: openstack
+  - apiVersion: v1
+    kind: ConfigMap
+    name: openstack-config
+    namespace: openstack
+  - apiVersion: v1
+    kind: Secret
+    name: openstack-config-secret
+    namespace: openstack
+  - apiVersion: v1
+    kind: Secret
+    name: combined-ca-bundle
+    namespace: openstack
