@@ -39,68 +39,38 @@ rules:
   - patch
   - update
 - apiGroups:
-  - ols.openshift.io
-  resources:
-  - olsconfigs
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ols.openshift.io
-  resources:
-  - olsconfigs/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ols.openshift.io
-  resources:
-  - olsconfigs/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
   - operators.coreos.com
   resources:
   - clusterserviceversions
   verbs:
   - get
   - list
+  - watch
+- apiGroups:
+  - rbac.authorization.k8s.io
+  resources:
+  - clusterrolebindings
+  - clusterroles
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
   - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
   name: manager-role
-  namespace: openshift-lightspeed
+  namespace: openstack-lightspeed
 rules:
 - apiGroups:
-  - operators.coreos.com
+  - ""
   resources:
-  - clusterserviceversions
-  verbs:
-  - delete
-  - patch
-  - update
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - installplans
-  verbs:
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - operators.coreos.com
-  resources:
-  - subscriptions
+  - configmaps
   verbs:
   - create
   - delete
@@ -109,3 +79,67 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - deletecollection
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - serviceaccounts
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - networking.k8s.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - operators.coreos.com
+  resources:
+  - clusterserviceversions
+  verbs:
+  - delete
+  - patch
+  - update

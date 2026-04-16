@@ -3,7 +3,7 @@ kind: TestSuite
 reportFormat: xml
 reportName: kuttl-report-openstack-lightspeed
 reportGranularity: test
-namespace: openshift-lightspeed
+namespace: openstack-lightspeed
 timeout: 600
 parallel: 1
 suppress:

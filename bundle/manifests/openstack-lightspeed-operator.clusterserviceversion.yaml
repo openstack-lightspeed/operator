@@ -25,7 +25,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: AI/Machine Learning
-    createdAt: "2026-02-19T13:45:56Z"
+    createdAt: "2026-04-09T11:08:52Z"
     description: AI-powered virtual assistant for Red Hat OpenStack Services on OpenShift
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -37,12 +37,12 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    operatorframework.io/suggested-namespace: openshift-lightspeed
+    operatorframework.io/suggested-namespace: openstack-lightspeed
     operators.operatorframework.io/builder: operator-sdk-v1.38.0
     operators.operatorframework.io/project_layout: go.kubebuilder.io/v4
     repository: https://github.com/openstack-lightspeed/operator
   name: openstack-lightspeed-operator.v0.0.1
-  namespace: openshift-lightspeed
+  namespace: openstack-lightspeed
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
@@ -58,13 +58,61 @@ spec:
         version: v1alpha1
       - kind: InstallPlan
         name: ""
-        version: v1alpha
+        version: v1alpha1
       - kind: Subscription
         name: ""
         version: v1alpha1
-      - kind: OLSConfig
-        name: cluster
-        version: v1alpha1
+      - kind: NetworkPolicy
+        name: lightspeed-app-server
+        version: v1
+      - kind: Service
+        name: lightspeed-app-server
+        version: v1
+      - kind: ServiceAccount
+        name: lightspeed-app-server
+        version: v1
+      - kind: ClusterRole
+        name: lightspeed-app-server-sar-role
+        version: v1
+      - kind: ClusterRoleBinding
+        name: lightspeed-app-server-sar-role-binding
+        version: v1
+      - kind: Secret
+        name: lightspeed-postgres-bootstrap
+        version: v1
+      - kind: Secret
+        name: lightspeed-postgres-certs
+        version: v1
+      - kind: ConfigMap
+        name: lightspeed-postgres-conf
+        version: v1
+      - kind: Secret
+        name: lightspeed-postgres-secret
+        version: v1
+      - kind: Deployment
+        name: lightspeed-postgres-server
+        version: v1
+      - kind: NetworkPolicy
+        name: lightspeed-postgres-server
+        version: v1
+      - kind: Service
+        name: lightspeed-postgres-server
+        version: v1
+      - kind: ConfigMap
+        name: lightspeed-stack-config
+        version: v1
+      - kind: Deployment
+        name: lightspeed-stack-deployment
+        version: v1
+      - kind: Secret
+        name: lightspeed-tls
+        version: v1
+      - kind: ConfigMap
+        name: llama-stack-config
+        version: v1
+      - kind: Secret
+        name: metrics-reader-token
+        version: v1
       specDescriptors:
       - description: |-
           Secret name containing API token for the LLMEndpoint. The secret must contain
@@ -133,38 +181,26 @@ spec:
           - patch
           - update
         - apiGroups:
-          - ols.openshift.io
-          resources:
-          - olsconfigs
-          verbs:
-          - create
-          - delete
-          - get
-          - list
-          - patch
-          - update
-          - watch
-        - apiGroups:
-          - ols.openshift.io
-          resources:
-          - olsconfigs/finalizers
-          verbs:
-          - update
-        - apiGroups:
-          - ols.openshift.io
-          resources:
-          - olsconfigs/status
-          verbs:
-          - get
-          - patch
-          - update
-        - apiGroups:
           - operators.coreos.com
           resources:
           - clusterserviceversions
           verbs:
           - get
           - list
+          - watch
+        - apiGroups:
+          - rbac.authorization.k8s.io
+          resources:
+          - clusterrolebindings
+          - clusterroles
+          verbs:
+          - create
+          - delete
+          - deletecollection
+          - get
+          - list
+          - patch
+          - update
           - watch
         - apiGroups:
           - authentication.k8s.io
@@ -206,14 +242,18 @@ spec:
                 command:
                 - /manager
                 env:
-                - name: OPENSHIFT_LIGHTSPEED_OPERATOR_VERSION
-                  value: latest
                 - name: WATCH_NAMESPACE
                   valueFrom:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT
                   value: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+                - name: RELATED_IMAGE_LCORE_IMAGE_URL_DEFAULT
+                  value: quay.io/lightspeed-core/lightspeed-stack:latest
+                - name: RELATED_IMAGE_EXPORTER_IMAGE_URL_DEFAULT
+                  value: quay.io/lightspeed-core/lightspeed-to-dataverse-exporter:latest
+                - name: RELATED_IMAGE_POSTGRES_IMAGE_URL_DEFAULT
+                  value: registry.redhat.io/rhel9/postgresql-16:latest
                 image: quay.io/openstack-lightspeed/operator:latest
                 livenessProbe:
                   httpGet:
@@ -278,27 +318,9 @@ spec:
           - create
           - patch
         - apiGroups:
-          - operators.coreos.com
+          - ""
           resources:
-          - clusterserviceversions
-          verbs:
-          - delete
-          - patch
-          - update
-        - apiGroups:
-          - operators.coreos.com
-          resources:
-          - installplans
-          verbs:
-          - delete
-          - get
-          - list
-          - update
-          - watch
-        - apiGroups:
-          - operators.coreos.com
-          resources:
-          - subscriptions
+          - configmaps
           verbs:
           - create
           - delete
@@ -307,6 +329,70 @@ spec:
           - patch
           - update
           - watch
+        - apiGroups:
+          - ""
+          resources:
+          - secrets
+          verbs:
+          - create
+          - delete
+          - deletecollection
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - serviceaccounts
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - watch
+        - apiGroups:
+          - ""
+          resources:
+          - services
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - networking.k8s.io
+          resources:
+          - networkpolicies
+          verbs:
+          - create
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - operators.coreos.com
+          resources:
+          - clusterserviceversions
+          verbs:
+          - delete
+          - patch
+          - update
         serviceAccountName: openstack-lightspeed-operator-controller-manager
     strategy: deployment
   installModes:
@@ -341,4 +427,10 @@ spec:
   relatedImages:
   - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
     name: openstack-lightspeed-image-url-default
+  - image: quay.io/lightspeed-core/lightspeed-stack:latest
+    name: lcore-image-url-default
+  - image: quay.io/lightspeed-core/lightspeed-to-dataverse-exporter:latest
+    name: exporter-image-url-default
+  - image: registry.redhat.io/rhel9/postgresql-16:latest
+    name: postgres-image-url-default
   version: 0.0.1

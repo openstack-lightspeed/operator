@@ -23,7 +23,9 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	uns "k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -45,10 +47,98 @@ const (
 // SupportedOCPVersions lists the OCP versions available in the RAG database
 var SupportedOCPVersions = []string{OCPVersion416, OCPVersion418, OCPVersionLatest}
 
+// resolveOCPVersion detects and resolves the OCP version to use for RAG configuration.
+// Returns the active OCP version to use (or empty string if OCP RAG is disabled).
+func (r *OpenStackLightspeedReconciler) resolveOCPVersion(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) string {
+	Log := helper.GetLogger()
+
+	// If OCP RAG is disabled, mark condition as True with "disabled" message
+	if !instance.Spec.EnableOCPRAG {
+		instance.Status.Conditions.MarkTrue(
+			apiv1beta1.OCPRAGCondition,
+			apiv1beta1.OCPRAGDisabledMessage,
+		)
+		instance.Status.ActiveOCPRAGVersion = ""
+		return ""
+	}
+
+	// Step 1: Detect cluster version
+	detectedVersion, err := DetectOCPVersion(ctx, helper)
+
+	if err != nil {
+		Log.Info("Failed to detect OCP version, disabling OCP RAG", "error", err)
+		cond := condition.FalseCondition(
+			apiv1beta1.OCPRAGCondition,
+			condition.ErrorReason,
+			condition.SeverityError,
+			apiv1beta1.OCPRAGDetectionFailedMessage,
+		)
+		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPRAGDetectionFailedMessage, err.Error())
+		instance.Status.Conditions.Set(cond)
+		instance.Status.ActiveOCPRAGVersion = ""
+		return ""
+	}
+
+	Log.Info("Detected OCP cluster version", "version", detectedVersion)
+
+	// Step 2: Resolve which version to use (with override and fallback)
+	activeVersion, isFallback, err := ResolveOCPVersion(
+		detectedVersion,
+		instance.Spec.OCPRAGVersionOverride,
+		instance.Spec.EnableOCPRAG,
+	)
+
+	if err != nil {
+		// Invalid override
+		Log.Error(err, "Invalid OCP version configuration")
+		cond := condition.FalseCondition(
+			apiv1beta1.OCPRAGCondition,
+			condition.ErrorReason,
+			condition.SeverityError,
+			apiv1beta1.OCPRAGOverrideInvalidMessage,
+		)
+		cond.Message = fmt.Sprintf("%s: %s", apiv1beta1.OCPRAGOverrideInvalidMessage, err.Error())
+		instance.Status.Conditions.Set(cond)
+		instance.Status.ActiveOCPRAGVersion = ""
+		return ""
+	}
+
+	// Step 3: Update status and conditions based on resolution
+	instance.Status.ActiveOCPRAGVersion = activeVersion
+
+	if isFallback {
+		Log.Info("Using 'latest' OCP documentation as fallback",
+			"detectedVersion", detectedVersion,
+			"supportedVersions", SupportedOCPVersions)
+
+		cond := condition.TrueCondition(
+			apiv1beta1.OCPRAGCondition,
+			"Fallback",
+		)
+		cond.Message = fmt.Sprintf(apiv1beta1.OCPRAGVersionFallbackMessage,
+			detectedVersion, SupportedOCPVersions)
+		instance.Status.Conditions.Set(cond)
+	} else {
+		Log.Info("Using OCP RAG documentation", "version", activeVersion)
+		cond := condition.TrueCondition(
+			apiv1beta1.OCPRAGCondition,
+			"Resolved",
+		)
+		cond.Message = fmt.Sprintf(apiv1beta1.OCPRAGVersionResolvedMessage, activeVersion)
+		instance.Status.Conditions.Set(cond)
+	}
+
+	return activeVersion
+}
+
 // DetectOCPVersion detects the OpenShift cluster version
 func DetectOCPVersion(ctx context.Context, helper *common_helper.Helper) (string, error) {
 	// Use raw client to access cluster-scoped resources
-	rawClient, err := GetRawClient(helper)
+	rawClient, err := getRawClient(helper)
 	if err != nil {
 		return "", fmt.Errorf("failed to get raw client: %w", err)
 	}
@@ -151,4 +241,28 @@ func ResolveOCPVersion(detectedVersion, overrideVersion string, enableOCPRAG boo
 
 	// Fallback to latest for unsupported versions
 	return OCPVersionLatest, true, nil
+}
+
+// BuildRAGConfigs builds the RAG configuration array.
+// OpenStack RAG is always included first.
+// OCP RAG is added if ocpVersion is provided.
+func BuildRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []interface{} {
+	rags := []interface{}{
+		// OpenStack RAG
+		map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": OpenStackLightspeedVectorDBPath,
+		},
+	}
+
+	// Add OCP RAG if enabled
+	if ocpVersion != "" {
+		rags = append(rags, map[string]interface{}{
+			"image":     instance.Spec.RAGImage,
+			"indexPath": GetOCPVectorDBPath(ocpVersion),
+			"indexID":   GetOCPIndexName(ocpVersion),
+		})
+	}
+
+	return rags
 }

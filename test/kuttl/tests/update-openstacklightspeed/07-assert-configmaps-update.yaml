@@ -1,0 +1,51 @@
+##############################################################################
+#    Assert that LCore/LlamaStack ConfigMaps are updated after CR update     #
+##############################################################################
+
+# Verify LlamaStack and LCore ConfigMaps still exist after update
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: llama-stack-config
+  namespace: openstack-lightspeed
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lightspeed-stack-config
+  namespace: openstack-lightspeed
+
+# Verify all operator-managed resources still exist after update
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lightspeed-stack-deployment
+  namespace: openstack-lightspeed
+status:
+  replicas: 1
+  readyReplicas: 1
+  availableReplicas: 1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lightspeed-postgres-server
+  namespace: openstack-lightspeed
+status:
+  replicas: 1
+  readyReplicas: 1
+  availableReplicas: 1
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lightspeed-app-server
+  namespace: openstack-lightspeed
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lightspeed-postgres-server
+  namespace: openstack-lightspeed

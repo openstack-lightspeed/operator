@@ -63,4 +63,10 @@ const (
 
 	// OCPRAGOverrideInvalidMessage
 	OCPRAGOverrideInvalidMessage = "Invalid OCP RAG version override"
+
+	// DeploymentCheckFailedMessage
+	DeploymentCheckFailedMessage = "Failed to check deployment status: %s"
+
+	// DeploymentsNotReadyMessage
+	DeploymentsNotReadyMessage = "Waiting for deployments to be ready: %s"
 )

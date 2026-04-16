@@ -16,10 +16,10 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    operatorframework.io/suggested-namespace: openshift-lightspeed
+    operatorframework.io/suggested-namespace: openstack-lightspeed
     repository: https://github.com/openstack-lightspeed/operator
   name: openstack-lightspeed-operator.v0.0.0
-  namespace: openshift-lightspeed
+  namespace: openstack-lightspeed
 spec:
   apiservicedefinitions: {}
   customresourcedefinitions:
@@ -35,13 +35,61 @@ spec:
         version: v1alpha1
       - kind: InstallPlan
         name: ""
-        version: v1alpha
+        version: v1alpha1
       - kind: Subscription
         name: ""
         version: v1alpha1
-      - kind: OLSConfig
-        name: cluster
-        version: v1alpha1
+      - kind: NetworkPolicy
+        name: lightspeed-app-server
+        version: v1
+      - kind: Service
+        name: lightspeed-app-server
+        version: v1
+      - kind: ServiceAccount
+        name: lightspeed-app-server
+        version: v1
+      - kind: ClusterRole
+        name: lightspeed-app-server-sar-role
+        version: v1
+      - kind: ClusterRoleBinding
+        name: lightspeed-app-server-sar-role-binding
+        version: v1
+      - kind: Secret
+        name: lightspeed-postgres-bootstrap
+        version: v1
+      - kind: Secret
+        name: lightspeed-postgres-certs
+        version: v1
+      - kind: ConfigMap
+        name: lightspeed-postgres-conf
+        version: v1
+      - kind: Secret
+        name: lightspeed-postgres-secret
+        version: v1
+      - kind: Deployment
+        name: lightspeed-postgres-server
+        version: v1
+      - kind: NetworkPolicy
+        name: lightspeed-postgres-server
+        version: v1
+      - kind: Service
+        name: lightspeed-postgres-server
+        version: v1
+      - kind: ConfigMap
+        name: lightspeed-stack-config
+        version: v1
+      - kind: Deployment
+        name: lightspeed-stack-deployment
+        version: v1
+      - kind: Secret
+        name: lightspeed-tls
+        version: v1
+      - kind: ConfigMap
+        name: llama-stack-config
+        version: v1
+      - kind: Secret
+        name: metrics-reader-token
+        version: v1
       specDescriptors:
       - description: |-
           Secret name containing API token for the LLMEndpoint. The secret must contain
