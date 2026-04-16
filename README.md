@@ -3,6 +3,12 @@
 OpenStack Lightspeed Operator is a generative AI-based virtual assistant for
 Red Hat OpenStack Services on OpenShift (RHOSO) users.
 
+> [!WARNING]
+> The OpenStack Lightspeed operator is currently being migrated to a
+> [lightspeed-stack](https://github.com/lightspeed-core/lightspeed-stack)-based
+> deployment. This work is being tracked on the
+> [lcore-migration](https://github.com/openstack-lightspeed/operator/tree/lcore-migration) branch.
+
 ## Images
 
 | Type | Quay.io Repository |
