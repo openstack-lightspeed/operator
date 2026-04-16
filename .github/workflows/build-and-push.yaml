@@ -68,6 +68,13 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
 
+      - name: Log in to Red Hat Registry
+        uses: docker/login-action@v4
+        with:
+          registry: registry.redhat.io
+          username: ${{ secrets.REDHAT_REGISTRY_USERNAME }}
+          password: ${{ secrets.REDHAT_REGISTRY_PASSWORD }}
+
       - name: Build operator image
         run: |
           make docker-build IMG=$OPERATOR_IMAGE
