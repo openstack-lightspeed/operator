@@ -19,6 +19,7 @@ package controller
 import (
 	_ "embed"
 	"fmt"
+	"os"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
@@ -197,8 +198,48 @@ func buildLCoreConversationCacheConfig(h *common_helper.Helper, _ *apiv1beta1.Op
 	}
 }
 
-// buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML.
-// NOTE: MCP servers, quota handlers, and tools approval features are disabled for OpenStack Lightspeed.
+func buildLCoreRAGConfig(instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+	ragIDs := []interface{}{}
+	for _, rag := range buildLCoreRAGConfigs(instance, instance.Status.ActiveOCPRAGVersion) {
+		ragID := rag.IndexID
+		if ragID == "" {
+			ragID = "rag_" + sanitizeID(rag.Image)
+		}
+		ragIDs = append(ragIDs, ragID)
+	}
+
+	return map[string]interface{}{
+		"inline": []string{
+			getVectorStoreID(),
+		},
+		// NOTE(lpiwowar): RAG will be enabled as a tool once the full migration
+		// to lightspeed-stack is complete and feature parity has been achieved.
+		// "tool": ragIDs,
+	}
+}
+
+func buildLCoreBYOKRAGConfig(instance *apiv1beta1.OpenStackLightspeed) []interface{} {
+	byokRAG := []interface{}{}
+	for _, rag := range buildLCoreRAGConfigs(instance, instance.Status.ActiveOCPRAGVersion) {
+		vectorDBID := rag.IndexID
+		if vectorDBID == "" {
+			vectorDBID = "rag_" + sanitizeID(rag.Image)
+		}
+
+		byokRAG = append(byokRAG, map[string]interface{}{
+			"rag_id":              getVectorStoreID(),
+			"rag_type":            "inline::faiss",
+			"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
+			"embedding_dimension": 768,
+			"vector_db_id":        getVectorStoreID(),
+			"db_path":             rag.IndexPath,
+			"score_multiplier":    1.0,
+		})
+	}
+
+	return byokRAG
+}
+
 func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) (string, error) {
 	// Build the complete config as a map
 	config := map[string]interface{}{
@@ -211,6 +252,8 @@ func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStac
 		"database":             buildLCoreDatabaseConfig(h, instance),
 		"customization":        buildLCoreCustomizationConfig(),
 		"conversation_cache":   buildLCoreConversationCacheConfig(h, instance),
+		"byok_rag":             buildLCoreBYOKRAGConfig(instance),
+		"rag":                  buildLCoreRAGConfig(instance),
 	}
 
 	// Convert to YAML
@@ -220,4 +263,12 @@ func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStac
 	}
 
 	return string(yamlBytes), nil
+}
+
+func getVectorStoreID() string {
+	id := os.Getenv("VECTOR_STORE_ID")
+	if id == "" {
+		panic("VECTOR_STORE_ID environment variable is not set")
+	}
+	return id
 }

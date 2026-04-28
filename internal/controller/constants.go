@@ -39,7 +39,10 @@ const (
 	OpenStackLightspeedAppServerNetworkPolicyName  = "lightspeed-app-server"
 	OpenStackLightspeedCertsSecretName             = "lightspeed-tls"
 	OpenStackLightspeedDefaultProvider             = "openstack-lightspeed-provider"
-	OpenStackLightspeedVectorDBPath                = "/rag/vector_db/os_product_docs"
+	RAGInitCopySubPath                             = "rag-0"
+	RAGInitCopyDestinationPath                     = "/rag-data/rag-0"
+	RAGRuntimeContentPath                          = "/rag/rag-0"
+	OpenStackLightspeedVectorDBPath                = RAGRuntimeContentPath + "/vector_db/os_product_docs"
 
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 
@@ -93,8 +96,13 @@ const (
 	LCoreConfigFilename                          = "lightspeed-stack.yaml"
 	LCoreConfigMapResourceVersionAnnotation      = "ols.openshift.io/lcore-configmap-version"
 	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
+	RAGImageAnnotation                           = "ols.openshift.io/rag-image"
+	ActiveOCPRAGVersionAnnotation                = "ols.openshift.io/active-ocp-rag-version"
 	LCoreUserDataMountPath                       = "/tmp/data"
 	ForceReloadAnnotationKey                     = "ols.openshift.io/force-reload"
+	RAGVolumeName                                = "rag-data"
+	RAGVolumeMountPath                           = "/rag"
+	RAGInitVolumeMountPath                       = "/rag-data"
 
 	// Data Exporter
 	ExporterConfigVolumeName    = "exporter-config"
