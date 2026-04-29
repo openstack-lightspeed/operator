@@ -33,7 +33,7 @@ import (
 
 const (
 	// OpenStackLightspeedOCPVectorDBPath - base path for OCP vector databases
-	OpenStackLightspeedOCPVectorDBPath = "/rag/ocp_vector_db/ocp"
+	OpenStackLightspeedOCPVectorDBPath = RAGRuntimeContentPath + "/ocp_vector_db/ocp"
 
 	// OpenStackLightspeedOCPIndexPrefix - prefix for OCP index names
 	OpenStackLightspeedOCPIndexPrefix = "ocp-product-docs"

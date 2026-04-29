@@ -226,8 +226,8 @@ func buildLlamaStackVectorDB(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLig
 					"table_name": "vector_store",
 				},
 				"persistence": map[string]interface{}{
-					"backend":   "kv_default",
-					"namespace": "vector_persistence",
+					"backend":   "rag_backend",
+					"namespace": "vector_io:faiss",
 				},
 			},
 		},
@@ -270,6 +270,10 @@ func buildLlamaStackStorage(_ *common_helper.Helper, instance *apiv1beta1.OpenSt
 			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
 			"gss_encmode":  "disable",
 		},
+		"rag_backend": map[string]interface{}{
+			"type":    "kv_sqlite",
+			"db_path": "/rag/rag-0/vector_db/os_product_docs/faiss_store.db",
+		},
 	}
 
 	// Map data stores to backends - all use SQL with table_name
@@ -294,37 +298,34 @@ func buildLlamaStackStorage(_ *common_helper.Helper, instance *apiv1beta1.OpenSt
 	}
 }
 
-func buildLlamaStackVectorDBs(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
-	vectorDBs := []interface{}{}
+func buildLlamaStackVectorStores(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+	var vectorDBs map[string]interface{}
 
 	// Use RAG configuration from instance if available
 	rags := buildLCoreRAGConfigs(instance, instance.Status.ActiveOCPRAGVersion)
 	if len(rags) > 0 {
-		for _, rag := range rags {
-			vectorDB := map[string]interface{}{
-				"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
-				"embedding_dimension": 768,
-				"provider_id":         "faiss",
-			}
+		vectorDBs = map[string]interface{}{
+			"default_embedding_model": map[string]interface{}{
+				"provider_id": "sentence-transformers",
+				// "model_id":    "all-mpnet-base-v2",
+				"model_id": "/rag/rag-0/embeddings_model",
+			},
 
-			// Use IndexID if specified, otherwise generate a default
-			if rag.IndexID != "" {
-				vectorDB["vector_db_id"] = rag.IndexID
-			} else {
-				// Generate a simple ID from the image name
-				vectorDB["vector_db_id"] = "rag_" + sanitizeID(rag.Image)
-			}
-
-			vectorDBs = append(vectorDBs, vectorDB)
+			// "embedding_dimension": 768,
+			"default_provider_id": "faiss",
+			// "index_path":          rag.IndexPath,
 		}
+
+		vectorDBs["vector_store_id"] = getVectorStoreID()
+
 	} else {
 		// Default fallback if no RAG configured
-		vectorDBs = append(vectorDBs, map[string]interface{}{
+		vectorDBs = map[string]interface{}{
 			"vector_db_id":        "my_knowledge_base",
 			"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
 			"embedding_dimension": 768,
 			"provider_id":         "faiss",
-		})
+		}
 	}
 
 	return vectorDBs
@@ -337,7 +338,7 @@ func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenSta
 			"model_id":          "sentence-transformers/all-mpnet-base-v2",
 			"model_type":        "embedding",
 			"provider_id":       "sentence-transformers",
-			"provider_model_id": "sentence-transformers/all-mpnet-base-v2",
+			"provider_model_id": "/rag/rag-0/embeddings_model",
 			"metadata": map[string]interface{}{
 				"embedding_dimension": 768,
 			},
@@ -380,6 +381,47 @@ func buildLlamaStackToolGroups(_ *common_helper.Helper, _ *apiv1beta1.OpenStackL
 	}
 }
 
+func buildLlamaStackRegisteredResources(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+	return map[string]interface{}{
+		"models": []interface{}{
+			map[string]interface{}{
+				"model_id":   "sentence-transformers/all-mpnet-base-v2",
+				"model_type": "embedding",
+				// "provider_model_id": "all-mpnet-base-v2",
+				"metadata": map[string]interface{}{
+					"embedding_dimension": 768,
+				},
+
+				"provider_id": "sentence-transformers",
+				// "provider_model_id": "all-mpnet-base-v2",
+				"provider_model_id": "/rag/rag-0/embeddings_model",
+			},
+
+			map[string]interface{}{
+				"model_id":          instance.Spec.ModelName,
+				"model_type":        "llm",
+				"provider_id":       "openstack-lightspeed-provider",
+				"provider_model_id": instance.Spec.ModelName,
+				"metadata": map[string]interface{}{
+					"max_tokens": 2048,
+				},
+			},
+		},
+		"vector_stores": []interface{}{
+			map[string]interface{}{
+				"vector_store_id": getVectorStoreID(),
+				// "model_id":        "sentence-transformers/all-mpnet-base-v2",
+				"provider_id": "faiss",
+				// "embedding_model":     "all-mpnet-base-v2",
+				// "embedding_model":     "sentence-transformers/all-mpnet-base-v2",
+				"embedding_model":     "sentence-transformers//rag/rag-0/embeddings_model",
+				"embedding_dimension": 768,
+				// "provider_model_id":   "/rag/rag-0/embeddings_model",
+			},
+		},
+	}
+}
+
 // buildLlamaStackYAML assembles the complete Llama Stack configuration and converts to YAML
 func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) (string, error) {
 	// Build the complete config as a map
@@ -400,12 +442,12 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 		"tool_runtime": buildLlamaStackToolRuntime(h, instance),
 		"vector_io":    buildLlamaStackVectorDB(h, instance),
 	}
-
 	// Add top-level fields
 	config["scoring_fns"] = []interface{}{}
 	config["server"] = buildLlamaStackServerConfig(h, instance)
 	config["storage"] = buildLlamaStackStorage(h, instance)
-	config["vector_dbs"] = buildLlamaStackVectorDBs(h, instance)
+	config["vector_stores"] = buildLlamaStackVectorStores(h, instance)
+	config["registered_resources"] = buildLlamaStackRegisteredResources(h, instance)
 	config["models"] = buildLlamaStackModels(h, instance)
 	config["tool_groups"] = buildLlamaStackToolGroups(h, instance)
 	config["telemetry"] = map[string]interface{}{

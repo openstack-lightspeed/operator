@@ -54,6 +54,10 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	llamaCacheMounts := []corev1.VolumeMount{}
 	addLlamaCacheVolumesAndMounts(&volumes, &llamaCacheMounts)
 
+	// Shared RAG content volume
+	ragMounts := []corev1.VolumeMount{}
+	addRAGVolumesAndMounts(&volumes, &ragMounts)
+
 	// Build env vars
 	llamaEnvVars, err := buildLlamaStackEnvVars(h, ctx, instance)
 	if err != nil {
@@ -65,6 +69,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	llamaStackMounts := []corev1.VolumeMount{llamaMount}
 	llamaStackMounts = append(llamaStackMounts, sharedMounts...)
 	llamaStackMounts = append(llamaStackMounts, llamaCacheMounts...)
+	llamaStackMounts = append(llamaStackMounts, ragMounts...)
 
 	llamaStackContainer := corev1.Container{
 		Name:         "llama-stack",
@@ -112,6 +117,8 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	if err != nil {
 		return corev1.PodTemplateSpec{}, err
 	}
+	annotations[RAGImageAnnotation] = instance.Spec.RAGImage
+	annotations[ActiveOCPRAGVersionAnnotation] = instance.Status.ActiveOCPRAGVersion
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
@@ -120,6 +127,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: OpenStackLightspeedAppServerServiceAccountName,
+			InitContainers:     []corev1.Container{buildRAGInitContainer(instance)},
 			Containers:         containers,
 			Volumes:            volumes,
 		},
@@ -246,6 +254,44 @@ func addLlamaCacheVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.Vo
 		Name:      "llama-cache",
 		MountPath: "/tmp/llama-stack",
 	})
+}
+
+// addRAGVolumesAndMounts adds an emptyDir volume shared by init and app containers for RAG content.
+func addRAGVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount) {
+	*volumes = append(*volumes, corev1.Volume{
+		Name: RAGVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+	*mounts = append(*mounts, corev1.VolumeMount{
+		Name:      RAGVolumeName,
+		MountPath: RAGVolumeMountPath,
+	})
+}
+
+// buildRAGInitContainer returns an init container that copies vector DB content from the RAG image.
+func buildRAGInitContainer(instance *apiv1beta1.OpenStackLightspeed) corev1.Container {
+	return corev1.Container{
+		Name:            "rag-init",
+		Image:           instance.Spec.RAGImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
+		Command: []string{
+			"sh", "-c",
+			fmt.Sprintf(
+				"mkdir -p %s && cp -a %s/. %s",
+				RAGInitCopyDestinationPath,
+				"/rag",
+				RAGInitCopyDestinationPath,
+			),
+		},
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      RAGVolumeName,
+				MountPath: RAGInitVolumeMountPath,
+			},
+		},
+	}
 }
 
 // addUserCAVolumesAndMounts adds user-provided additional CA certificate volume and mount
