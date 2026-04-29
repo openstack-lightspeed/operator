@@ -117,6 +117,14 @@ kind: Deployment
 metadata:
   name: lightspeed-console-plugin
   namespace: openstack-lightspeed
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: rewrite-locales
+          volumeMounts:
+            - name: locales-rewrite
+              mountPath: /locales-rewrite
 ---
 apiVersion: v1
 kind: Service

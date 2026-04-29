@@ -224,3 +224,9 @@ var vectorDatabaseBuildScript string
 
 //go:embed assets/console_nginx.conf.tmpl
 var consoleNginxConfigTemplate string
+
+// consoleLocalesRewriteAwk is the awk script that performs case-preserving
+// OpenShift -> OpenStack replacement only in JSON values (after the first `": `).
+//
+//go:embed assets/console_locales_rewrite.awk
+var consoleLocalesRewriteAwk string

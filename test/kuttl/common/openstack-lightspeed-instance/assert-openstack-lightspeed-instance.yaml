@@ -189,6 +189,16 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: rewrite-locales
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: locales-rewrite
+              mountPath: /locales-rewrite
 ---
 apiVersion: v1
 kind: Service

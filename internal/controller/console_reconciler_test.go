@@ -75,15 +75,29 @@ var _ = Describe("Console Plugin", func() {
 			Expect(ports[0].Protocol).To(Equal(corev1.ProtocolTCP))
 		})
 
-		It("should have TLS cert, nginx config, and nginx temp volume mounts", func() {
+		It("should have TLS cert, nginx config, nginx temp, and locales-rewrite volume mounts", func() {
 			mounts := spec.Template.Spec.Containers[0].VolumeMounts
-			Expect(mounts).To(HaveLen(3))
+			Expect(mounts).To(HaveLen(4))
 
 			var names []string
 			for _, m := range mounts {
 				names = append(names, m.Name)
 			}
-			Expect(names).To(ContainElements("lightspeed-console-plugin-cert", "nginx-config", "nginx-temp"))
+			Expect(names).To(ContainElements("lightspeed-console-plugin-cert", "nginx-config", "nginx-temp", "locales-rewrite"))
+		})
+
+		It("should mount locales-rewrite with SubPath at the locales file path", func() {
+			mounts := spec.Template.Spec.Containers[0].VolumeMounts
+			var found bool
+			for _, m := range mounts {
+				if m.Name == "locales-rewrite" {
+					found = true
+					Expect(m.MountPath).To(Equal(consoleLocalesPath))
+					Expect(m.SubPath).To(Equal(consoleLocalesFilename))
+					Expect(m.ReadOnly).To(BeTrue())
+				}
+			}
+			Expect(found).To(BeTrue())
 		})
 
 		It("should have TLS cert volume from secret", func() {
@@ -126,6 +140,50 @@ var _ = Describe("Console Plugin", func() {
 
 		It("should use the console service account", func() {
 			Expect(spec.Template.Spec.ServiceAccountName).To(Equal(ConsoleUIServiceAccountName))
+		})
+
+		It("should have a locales-rewrite emptyDir volume", func() {
+			volumes := spec.Template.Spec.Volumes
+			var found bool
+			for _, v := range volumes {
+				if v.Name == "locales-rewrite" {
+					found = true
+					Expect(v.VolumeSource.EmptyDir).NotTo(BeNil())
+				}
+			}
+			Expect(found).To(BeTrue())
+		})
+
+		It("should have one init container for rewriting locales", func() {
+			initContainers := spec.Template.Spec.InitContainers
+			Expect(initContainers).To(HaveLen(1))
+			Expect(initContainers[0].Name).To(Equal("rewrite-locales"))
+		})
+
+		It("should use the same console image for the init container", func() {
+			initContainer := spec.Template.Spec.InitContainers[0]
+			mainContainer := spec.Template.Spec.Containers[0]
+			Expect(initContainer.Image).To(Equal(mainContainer.Image))
+		})
+
+		It("should have the init container command with awk for text replacement", func() {
+			initContainer := spec.Template.Spec.InitContainers[0]
+			Expect(initContainer.Command).To(HaveLen(3))
+			Expect(initContainer.Command[0]).To(Equal("sh"))
+			Expect(initContainer.Command[1]).To(Equal("-c"))
+			cmd := initContainer.Command[2]
+			Expect(cmd).To(ContainSubstring("awk"))
+			Expect(cmd).To(ContainSubstring("OpenShift"))
+			Expect(cmd).To(ContainSubstring("OpenStack"))
+			Expect(cmd).To(ContainSubstring(consoleLocalesPath))
+			Expect(cmd).To(ContainSubstring("/locales-rewrite/" + consoleLocalesFilename))
+		})
+
+		It("should mount locales-rewrite volume in the init container", func() {
+			initContainer := spec.Template.Spec.InitContainers[0]
+			Expect(initContainer.VolumeMounts).To(HaveLen(1))
+			Expect(initContainer.VolumeMounts[0].Name).To(Equal("locales-rewrite"))
+			Expect(initContainer.VolumeMounts[0].MountPath).To(Equal("/locales-rewrite"))
 		})
 	})
 
