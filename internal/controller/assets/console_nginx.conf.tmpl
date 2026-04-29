@@ -1,0 +1,22 @@
+
+pid       /tmp/nginx/nginx.pid;
+error_log /dev/stdout info;
+events {}
+http {
+    client_body_temp_path /tmp/nginx/client_body;
+    proxy_temp_path       /tmp/nginx/proxy;
+    fastcgi_temp_path     /tmp/nginx/fastcgi;
+    uwsgi_temp_path       /tmp/nginx/uwsgi;
+    scgi_temp_path        /tmp/nginx/scgi;
+    access_log            /dev/stdout;
+    include               /etc/nginx/mime.types;
+    default_type          application/octet-stream;
+    keepalive_timeout     65;
+    server {
+        listen              %[1]d ssl;
+        listen              [::]:%[1]d ssl;
+        ssl_certificate     /var/cert/tls.crt;
+        ssl_certificate_key /var/cert/tls.key;
+        root                /usr/share/nginx/html;
+    }
+}
