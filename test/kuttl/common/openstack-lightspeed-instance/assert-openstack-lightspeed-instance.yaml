@@ -73,6 +73,7 @@ rules:
     resources:
       - clusterversions
     verbs:
+      - list
       - get
   - apiGroups:
       - ""
