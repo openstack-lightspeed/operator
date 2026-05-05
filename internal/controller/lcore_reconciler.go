@@ -47,6 +47,7 @@ func ReconcileLCoreResources(h *common_helper.Helper, ctx context.Context, insta
 		{Name: "LlamaStackConfigMap", Task: reconcileLlamaStackConfigMap},
 		{Name: "LcoreConfigMap", Task: reconcileLcoreConfigMap},
 		{Name: "ExporterConfigMap", Task: reconcileExporterConfigMap},
+		{Name: "VectorDBScriptsConfigMap", Task: reconcileVectorDBScriptsConfigMap},
 		{Name: "OpenStackLightspeedAdditionalCAConfigMap", Task: reconcileOpenStackLightspeedAdditionalCAConfigMap},
 		{Name: "ProxyCAConfigMap", Task: reconcileProxyCAConfigMap},
 		{Name: "NetworkPolicy", Task: reconcileNetworkPolicy},
@@ -197,7 +198,7 @@ func reconcileLlamaStackConfigMap(h *common_helper.Helper, ctx context.Context, 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), cm, func() error {
 		// Set Data (same as current selective update)
 		cm.Data = map[string]string{
-			LlamaStackConfigFilename: yamlData,
+			OGXConfigCMKey: yamlData,
 		}
 		// Set owner reference
 		return controllerutil.SetControllerReference(h.GetBeforeObject(), cm, h.GetScheme())
@@ -231,7 +232,7 @@ func reconcileLcoreConfigMap(h *common_helper.Helper, ctx context.Context, insta
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), cm, func() error {
 		// Set Data (same as current selective update)
 		cm.Data = map[string]string{
-			LCoreConfigFilename: yamlData,
+			LightspeedStackConfigCMKey: yamlData,
 		}
 		// Set owner reference
 		return controllerutil.SetControllerReference(h.GetBeforeObject(), cm, h.GetScheme())
@@ -279,6 +280,33 @@ func reconcileExporterConfigMap(h *common_helper.Helper, ctx context.Context, in
 	}
 
 	logger.Info("Exporter ConfigMap reconciled", "name", cm.Name, "result", result)
+	return nil
+}
+
+// reconcileVectorDBScriptsConfigMap ensures the Vector DB scripts config map exists and is up to date.
+func reconcileVectorDBScriptsConfigMap(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
+	logger := h.GetLogger()
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      VectorDBScriptsConfigMapName,
+			Namespace: h.GetBeforeObject().GetNamespace(),
+		},
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), cm, func() error {
+		cm.Data = map[string]string{
+			VectorDBCollectScriptKey: vectorDatabaseCollectScript,
+			VectorDBBuildScriptKey:   vectorDatabaseBuildScript,
+		}
+
+		return controllerutil.SetControllerReference(h.GetBeforeObject(), cm, h.GetScheme())
+	})
+
+	if err != nil {
+		return fmt.Errorf("failed to create vector DB scripts ConfigMap: %v", err)
+	}
+
+	logger.Info("Vector DB Scripts ConfigMap reconciled", "name", cm.Name, "result", result)
 	return nil
 }
 
