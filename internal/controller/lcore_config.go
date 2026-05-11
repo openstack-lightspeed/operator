@@ -22,6 +22,8 @@ import (
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/yaml"
 )
 
@@ -193,6 +195,36 @@ func buildLCoreConversationCacheConfig(h *common_helper.Helper, _ *apiv1beta1.Op
 			"gss_encmode":  "disable",
 			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
 			"namespace":    "conversation_cache",
+		},
+	}
+}
+
+// isDataCollectionEnabled returns true if at least one of feedback or transcripts is enabled.
+func isDataCollectionEnabled(instance *apiv1beta1.OpenStackLightspeed) bool {
+	return !instance.Spec.FeedbackDisabled || !instance.Spec.TranscriptsDisabled
+}
+
+// buildExporterConfigMap creates the ConfigMap for the dataverse exporter sidecar.
+func buildExporterConfigMap(h *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) *corev1.ConfigMap {
+	exporterConfig := fmt.Sprintf(`service_id: "%s"
+ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
+allowed_subdirs:
+  - feedback
+  - transcripts
+  - config_status
+collection_interval: 300
+cleanup_after_send: true
+ingress_connection_timeout: 30
+`, ServiceIDRHOSO)
+
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ExporterConfigCmName,
+			Namespace: h.GetBeforeObject().GetNamespace(),
+			Labels:    generateAppServerSelectorLabels(),
+		},
+		Data: map[string]string{
+			ExporterConfigFilename: exporterConfig,
 		},
 	}
 }

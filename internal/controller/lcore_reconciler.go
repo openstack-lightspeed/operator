@@ -46,6 +46,7 @@ func ReconcileLCoreResources(h *common_helper.Helper, ctx context.Context, insta
 		{Name: "SARRoleBinding", Task: reconcileSARRoleBinding},
 		{Name: "LlamaStackConfigMap", Task: reconcileLlamaStackConfigMap},
 		{Name: "LcoreConfigMap", Task: reconcileLcoreConfigMap},
+		{Name: "ExporterConfigMap", Task: reconcileExporterConfigMap},
 		{Name: "OpenStackLightspeedAdditionalCAConfigMap", Task: reconcileOpenStackLightspeedAdditionalCAConfigMap},
 		{Name: "ProxyCAConfigMap", Task: reconcileProxyCAConfigMap},
 		{Name: "NetworkPolicy", Task: reconcileNetworkPolicy},
@@ -114,6 +115,17 @@ func reconcileSARRole(h *common_helper.Helper, ctx context.Context, instance *ap
 				APIGroups: []string{"authentication.k8s.io"},
 				Resources: []string{"tokenreviews"},
 				Verbs:     []string{"create"},
+			},
+			{
+				APIGroups: []string{"config.openshift.io"},
+				Resources: []string{"clusterversions"},
+				Verbs:     []string{"get"},
+			},
+			{
+				APIGroups:     []string{""},
+				Resources:     []string{"secrets"},
+				ResourceNames: []string{"pull-secret"},
+				Verbs:         []string{"get"},
 			},
 		}
 		// Note: ClusterRole is cluster-scoped, no owner reference needed
@@ -230,6 +242,43 @@ func reconcileLcoreConfigMap(h *common_helper.Helper, ctx context.Context, insta
 	}
 
 	logger.Info("LCore ConfigMap reconciled", "name", cm.Name, "result", result)
+	return nil
+}
+
+// reconcileExporterConfigMap ensures the dataverse exporter ConfigMap exists when data
+// collection is enabled, and deletes it when disabled.
+func reconcileExporterConfigMap(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
+	logger := h.GetLogger()
+
+	if !isDataCollectionEnabled(instance) {
+		cm := &corev1.ConfigMap{}
+		cm.Name = ExporterConfigCmName
+		cm.Namespace = h.GetBeforeObject().GetNamespace()
+		if err := h.GetClient().Delete(ctx, cm); err != nil && !errors.IsNotFound(err) {
+			return fmt.Errorf("failed to delete exporter configmap: %w", err)
+		}
+		return nil
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      ExporterConfigCmName,
+			Namespace: h.GetBeforeObject().GetNamespace(),
+		},
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), cm, func() error {
+		desiredCm := buildExporterConfigMap(h, instance)
+		cm.Data = desiredCm.Data
+		cm.Labels = desiredCm.Labels
+		return controllerutil.SetControllerReference(h.GetBeforeObject(), cm, h.GetScheme())
+	})
+
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCreateExporterConfigMap, err)
+	}
+
+	logger.Info("Exporter ConfigMap reconciled", "name", cm.Name, "result", result)
 	return nil
 }
 
