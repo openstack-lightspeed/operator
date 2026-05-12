@@ -20,6 +20,7 @@ linters:
     - unconvert
     - unparam
     - unused
+    - gosec
   settings:
     revive:
       rules:
@@ -34,6 +35,12 @@ linters:
           - dupl
           - lll
         path: internal/*
+      - linters:
+          - gosec
+        path: _test\.go
+      - linters:
+          - gosec
+        path: test/
     paths:
       - third_party$
       - builtin$
