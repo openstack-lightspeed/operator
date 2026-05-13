@@ -18,8 +18,10 @@ package controller
 
 import (
 	"context"
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math"
+	"math/big"
 	"strconv"
 
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
@@ -354,7 +356,11 @@ func OLSConfigPing(ctx context.Context, helper *common_helper.Helper) error {
 		labels = make(map[string]string)
 	}
 
-	labels[randomLabelKey] = strconv.Itoa(rand.Int())
+	randInt, err := rand.Int(rand.Reader, big.NewInt(math.MaxInt64))
+	if err != nil {
+		return err
+	}
+	labels[randomLabelKey] = strconv.FormatInt(randInt.Int64(), 10)
 	olsConfig.SetLabels(labels)
 
 	if err := helper.GetClient().Update(ctx, &olsConfig); err != nil {
