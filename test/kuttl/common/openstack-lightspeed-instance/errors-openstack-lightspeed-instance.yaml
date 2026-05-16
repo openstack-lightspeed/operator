@@ -61,3 +61,11 @@ kind: ConfigMap
 metadata:
   name: lightspeed-postgres-conf
   namespace: openstack-lightspeed
+
+# Vector DB init containers scripts should be gone
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-db-scripts
+  namespace: openstack-lightspeed
