@@ -35,6 +35,7 @@ var (
 	ErrGetTLSSecret                 = errors.New("failed to get TLS secret")
 	ErrCreateLlamaStackConfigMap    = errors.New("failed to create Llama Stack configmap")
 	ErrGenerateLlamaStackConfigMap  = errors.New("failed to generate Llama Stack configmap")
+	ErrCreateExporterConfigMap      = errors.New("failed to create exporter configmap")
 
 	// Postgres Errors
 	ErrCreatePostgresDeployment      = errors.New("failed to create Postgres deployment")

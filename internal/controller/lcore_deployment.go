@@ -19,11 +19,13 @@ package controller
 import (
 	"context"
 	"fmt"
+	"path"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -86,12 +88,26 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
 
+	// Data collection volumes (shared folder + exporter config)
+	dataCollectionEnabled := isDataCollectionEnabled(instance)
+	if dataCollectionEnabled {
+		addDataCollectorVolumes(&volumes, VolumeDefaultMode)
+	}
+
 	// Lightspeed Stack container mounts: its config + shared + TLS (only API container needs TLS)
 	lightspeedStackMounts := []corev1.VolumeMount{lcoreMount}
 	lightspeedStackMounts = append(lightspeedStackMounts, sharedMounts...)
 	tlsMounts := []corev1.VolumeMount{}
 	addTLSVolumesAndMounts(&volumes, &tlsMounts, VolumeDefaultMode)
 	lightspeedStackMounts = append(lightspeedStackMounts, tlsMounts...)
+
+	// Mount shared data folder on lightspeed-service-api for feedback/transcripts
+	if dataCollectionEnabled {
+		lightspeedStackMounts = append(lightspeedStackMounts, corev1.VolumeMount{
+			Name:      UserDataVolumeName,
+			MountPath: LCoreUserDataMountPath,
+		})
+	}
 
 	lightspeedStackContainer := corev1.Container{
 		Name:            "lightspeed-service-api",
@@ -106,6 +122,42 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	}
 
 	containers := []corev1.Container{llamaStackContainer, lightspeedStackContainer}
+
+	// Add dataverse exporter sidecar when data collection is enabled
+	if dataCollectionEnabled {
+		exporterContainer := corev1.Container{
+			Name:            DataverseExporterContainerName,
+			Image:           apiv1beta1.OpenStackLightspeedDefaultValues.ExporterImageURL,
+			ImagePullPolicy: corev1.PullAlways,
+			Args: []string{
+				"--mode", "openshift",
+				"--config", path.Join(ExporterConfigMountPath, ExporterConfigFilename),
+				"--log-level", "INFO",
+				"--data-dir", LCoreUserDataMountPath,
+			},
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      UserDataVolumeName,
+					MountPath: LCoreUserDataMountPath,
+				},
+				{
+					Name:      ExporterConfigVolumeName,
+					MountPath: ExporterConfigMountPath,
+					ReadOnly:  true,
+				},
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("200Mi"),
+				},
+			},
+		}
+		containers = append(containers, exporterContainer)
+	}
 
 	// Build configmap resource version annotations for change detection
 	annotations, err := buildConfigMapAnnotations(h, ctx)
@@ -245,6 +297,28 @@ func addLlamaCacheVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.Vo
 	*mounts = append(*mounts, corev1.VolumeMount{
 		Name:      "llama-cache",
 		MountPath: "/tmp/llama-stack",
+	})
+}
+
+// addDataCollectorVolumes adds the shared data EmptyDir and exporter config volumes.
+func addDataCollectorVolumes(volumes *[]corev1.Volume, volumeDefaultMode int32) {
+	*volumes = append(*volumes, corev1.Volume{
+		Name: UserDataVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+
+	*volumes = append(*volumes, corev1.Volume{
+		Name: ExporterConfigVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: ExporterConfigCmName,
+				},
+				DefaultMode: toPtr(volumeDefaultMode),
+			},
+		},
 	})
 }
 

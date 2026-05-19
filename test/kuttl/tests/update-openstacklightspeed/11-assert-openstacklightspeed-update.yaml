@@ -66,6 +66,12 @@ metadata:
   name: lightspeed-stack-deployment
   namespace: openstack-lightspeed
   generation: 2
+spec:
+  template:
+    spec:
+      containers:
+        - name: llama-stack
+        - name: lightspeed-service-api
 status:
   replicas: 1
   readyReplicas: 1

@@ -97,11 +97,14 @@ const (
 	ForceReloadAnnotationKey                     = "ols.openshift.io/force-reload"
 
 	// Data Exporter
-	ExporterConfigVolumeName    = "exporter-config"
-	ExporterConfigMountPath     = "/etc/config"
-	ExporterConfigFilename      = "config.yaml"
-	RHOSOLightspeedOwnerIDLabel = "openstack.org/lightspeed-owner-id"
-	ServiceIDRHOSO              = "rhos-lightspeed"
+	ExporterConfigVolumeName       = "exporter-config"
+	ExporterConfigMountPath        = "/etc/config"
+	ExporterConfigFilename         = "config.yaml"
+	ExporterConfigCmName           = "lightspeed-exporter-config"
+	DataverseExporterContainerName = "lightspeed-to-dataverse-exporter"
+	UserDataVolumeName             = "ols-user-data"
+	RHOSOLightspeedOwnerIDLabel    = "openstack.org/lightspeed-owner-id"
+	ServiceIDRHOSO                 = "rhos-lightspeed"
 
 	// Azure
 	AzureOpenAIType = "azure_openai"

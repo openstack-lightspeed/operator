@@ -1,0 +1,17 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lightspeed-exporter-config
+  namespace: openstack-lightspeed
+data:
+  config.yaml: |
+    service_id: "rhos-lightspeed"
+    ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
+    allowed_subdirs:
+      - feedback
+      - transcripts
+      - config_status
+    collection_interval: 300
+    cleanup_after_send: true
+    ingress_connection_timeout: 30

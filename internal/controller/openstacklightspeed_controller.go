@@ -63,6 +63,7 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,namespace=openstack-lightspeed,verbs=update;patch;delete
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
+// +kubebuilder:rbac:groups="",resources=secrets,resourceNames=pull-secret,verbs=get
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update
 // +kubebuilder:rbac:groups=apps,resources=deployments,namespace=openstack-lightspeed,verbs=get;list;watch;create;update;patch
 // +kubebuilder:rbac:groups="",resources=configmaps,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update;delete
