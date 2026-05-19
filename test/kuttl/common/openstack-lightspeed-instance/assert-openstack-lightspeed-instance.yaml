@@ -148,6 +148,14 @@ metadata:
   name: lightspeed-app-server
   namespace: openstack-lightspeed
 
+# Vector DB init containers scripts
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vector-db-scripts
+  namespace: openstack-lightspeed
+
 # OpenStackLightspeed CR status
 ---
 apiVersion: lightspeed.openstack.org/v1beta1

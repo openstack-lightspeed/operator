@@ -274,6 +274,8 @@ $(KUTTL): $(LOCALBIN)
 
 .PHONY: kuttl-test
 kuttl-test: kuttl ## Run kuttl tests
+	@command -v diff >/dev/null 2>&1 || { echo "ERROR: 'diff' command is required for KUTTL tests but not found in PATH" >&2; exit 1; }
+	@command -v oc >/dev/null 2>&1 || { echo "ERROR: 'oc' command is required for KUTTL tests but not found in PATH" >&2; exit 1; }
 	$(LOCALBIN)/kubectl-kuttl test --config kuttl-test.yaml test/kuttl/tests $(KUTTL_ARGS)
 
 .PHONY: kuttl-test-run

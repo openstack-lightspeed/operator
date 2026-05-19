@@ -19,7 +19,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
@@ -294,56 +293,8 @@ func buildLlamaStackStorage(_ *common_helper.Helper, instance *apiv1beta1.OpenSt
 	}
 }
 
-func buildLlamaStackVectorDBs(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
-	vectorDBs := []interface{}{}
-
-	// Use RAG configuration from instance if available
-	rags := buildLCoreRAGConfigs(instance, instance.Status.ActiveOCPRAGVersion)
-	if len(rags) > 0 {
-		for _, rag := range rags {
-			vectorDB := map[string]interface{}{
-				"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
-				"embedding_dimension": 768,
-				"provider_id":         "faiss",
-			}
-
-			// Use IndexID if specified, otherwise generate a default
-			if rag.IndexID != "" {
-				vectorDB["vector_db_id"] = rag.IndexID
-			} else {
-				// Generate a simple ID from the image name
-				vectorDB["vector_db_id"] = "rag_" + sanitizeID(rag.Image)
-			}
-
-			vectorDBs = append(vectorDBs, vectorDB)
-		}
-	} else {
-		// Default fallback if no RAG configured
-		vectorDBs = append(vectorDBs, map[string]interface{}{
-			"vector_db_id":        "my_knowledge_base",
-			"embedding_model":     "sentence-transformers/all-mpnet-base-v2",
-			"embedding_dimension": 768,
-			"provider_id":         "faiss",
-		})
-	}
-
-	return vectorDBs
-}
-
 func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
-	models := []interface{}{
-		// Always include sentence-transformers embedding model for RAG
-		map[string]interface{}{
-			"model_id":          "sentence-transformers/all-mpnet-base-v2",
-			"model_type":        "embedding",
-			"provider_id":       "sentence-transformers",
-			"provider_model_id": "sentence-transformers/all-mpnet-base-v2",
-			"metadata": map[string]interface{}{
-				"embedding_dimension": 768,
-			},
-		},
-	}
-
+	models := []interface{}{}
 	// Add LLM models from the instance spec
 	{
 		provider := buildProvider(instance)
@@ -405,11 +356,13 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 	config["scoring_fns"] = []interface{}{}
 	config["server"] = buildLlamaStackServerConfig(h, instance)
 	config["storage"] = buildLlamaStackStorage(h, instance)
-	config["vector_dbs"] = buildLlamaStackVectorDBs(h, instance)
-	config["models"] = buildLlamaStackModels(h, instance)
-	config["tool_groups"] = buildLlamaStackToolGroups(h, instance)
 	config["telemetry"] = map[string]interface{}{
 		"enabled": false,
+	}
+	config["registered_resources"] = map[string][]interface{}{
+		"models":        buildLlamaStackModels(h, instance),
+		"vector_stores": {},
+		"tool_groups":   buildLlamaStackToolGroups(h, instance),
 	}
 
 	// Convert to YAML
@@ -419,22 +372,4 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 	}
 
 	return string(yamlBytes), nil
-}
-
-// sanitizeID creates a valid ID from an image name. It extracts just the image name without
-// registry/tag (e.g., "quay.io/my-org/my-rag:latest" -> "my-rag")
-func sanitizeID(image string) string {
-	parts := strings.Split(image, "/")
-	name := parts[len(parts)-1]
-	name = strings.Split(name, ":")[0]
-
-	// Replace invalid characters with underscores
-	name = strings.Map(func(r rune) rune {
-		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' {
-			return r
-		}
-		return '_'
-	}, name)
-
-	return name
 }

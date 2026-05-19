@@ -55,13 +55,6 @@ type lcoreModel struct {
 	MaxTokensForResponse int
 }
 
-// lcoreRAG represents RAG configuration.
-type lcoreRAG struct {
-	Image     string
-	IndexPath string
-	IndexID   string
-}
-
 // buildProvider creates an lcoreProvider from an OpenStackLightspeed instance.
 func buildProvider(instance *apiv1beta1.OpenStackLightspeed) lcoreProvider {
 	return lcoreProvider{
@@ -79,26 +72,6 @@ func buildProvider(instance *apiv1beta1.OpenStackLightspeed) lcoreProvider {
 		APIVersion:          instance.Spec.LLMAPIVersion,
 		WatsonProjectID:     instance.Spec.LLMProjectID,
 	}
-}
-
-// buildLCoreRAGConfigs builds the RAG configuration from an OpenStackLightspeed instance.
-func buildLCoreRAGConfigs(instance *apiv1beta1.OpenStackLightspeed, ocpVersion string) []lcoreRAG {
-	rags := []lcoreRAG{
-		{
-			Image:     instance.Spec.RAGImage,
-			IndexPath: OpenStackLightspeedVectorDBPath,
-		},
-	}
-
-	if ocpVersion != "" {
-		rags = append(rags, lcoreRAG{
-			Image:     instance.Spec.RAGImage,
-			IndexPath: GetOCPVectorDBPath(ocpVersion),
-			IndexID:   GetOCPIndexName(ocpVersion),
-		})
-	}
-
-	return rags
 }
 
 func buildLCoreServiceConfig(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
@@ -243,6 +216,10 @@ func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStac
 		"database":             buildLCoreDatabaseConfig(h, instance),
 		"customization":        buildLCoreCustomizationConfig(),
 		"conversation_cache":   buildLCoreConversationCacheConfig(h, instance),
+		"byok_rag":             []interface{}{},
+		"rag": map[string]interface{}{
+			"inline": []interface{}{},
+		},
 	}
 
 	// Convert to YAML

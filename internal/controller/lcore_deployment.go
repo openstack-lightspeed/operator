@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"strconv"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
@@ -35,15 +36,11 @@ import (
 // This function is used by CreateOrPatch to generate the desired pod spec.
 func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) (corev1.PodTemplateSpec, error) {
 	// Build shared volumes
-	volumes := []corev1.Volume{}
-
-	// Llama Stack config volume (used by llama-stack container)
-	llamaVol, llamaMount := buildLlamaStackConfigVolumeAndMount(VolumeDefaultMode)
-	volumes = append(volumes, llamaVol)
-
-	// LCore config volume (used by lightspeed-stack container)
-	lcoreVol, lcoreMount := buildLCoreConfigVolumeAndMount(VolumeDefaultMode)
-	volumes = append(volumes, lcoreVol)
+	volumes := []corev1.Volume{
+		buildOGXConfigVolume(VolumeDefaultMode),
+		buildLightspeedStackConfigVolume(VolumeDefaultMode),
+		buildVectorDBScriptsVolume(),
+	}
 
 	// Shared volumes - CA, postgres
 	sharedMounts := []corev1.VolumeMount{}
@@ -51,6 +48,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	addOpenShiftRootCAVolumesAndMounts(&volumes, &sharedMounts, VolumeDefaultMode)
 	addPostgresCAVolumesAndMounts(&volumes, &sharedMounts)
 	addUserCAVolumesAndMounts(&volumes, &sharedMounts, instance, VolumeDefaultMode)
+	addVectorDBDataVolumesAndMounts(&volumes, &sharedMounts)
 
 	// Llama cache emptydir
 	llamaCacheMounts := []corev1.VolumeMount{}
@@ -63,15 +61,15 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	}
 	lsEnvVars := buildLightspeedStackEnvVars()
 
-	// Llama Stack container mounts: its config + shared + cache
-	llamaStackMounts := []corev1.VolumeMount{llamaMount}
+	// Llama Stack container mounts: its config + shared + cache + vector_store_db data
+	llamaStackMounts := []corev1.VolumeMount{}
 	llamaStackMounts = append(llamaStackMounts, sharedMounts...)
 	llamaStackMounts = append(llamaStackMounts, llamaCacheMounts...)
 
 	llamaStackContainer := corev1.Container{
 		Name:         "llama-stack",
 		Image:        apiv1beta1.OpenStackLightspeedDefaultValues.LCoreImageURL,
-		Command:      []string{"llama", "stack", "run", LlamaStackConfigMountPath},
+		Command:      []string{"llama", "stack", "run", VectorDBVolumeOGXConfigPath},
 		Ports:        []corev1.ContainerPort{{Name: "llama-stack", ContainerPort: LlamaStackContainerPort}},
 		VolumeMounts: llamaStackMounts,
 		Env:          llamaEnvVars,
@@ -95,8 +93,9 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	}
 
 	// Lightspeed Stack container mounts: its config + shared + TLS (only API container needs TLS)
-	lightspeedStackMounts := []corev1.VolumeMount{lcoreMount}
+	lightspeedStackMounts := []corev1.VolumeMount{}
 	lightspeedStackMounts = append(lightspeedStackMounts, sharedMounts...)
+
 	tlsMounts := []corev1.VolumeMount{}
 	addTLSVolumesAndMounts(&volumes, &tlsMounts, VolumeDefaultMode)
 	lightspeedStackMounts = append(lightspeedStackMounts, tlsMounts...)
@@ -112,6 +111,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	lightspeedStackContainer := corev1.Container{
 		Name:            "lightspeed-service-api",
 		Image:           apiv1beta1.OpenStackLightspeedDefaultValues.LCoreImageURL,
+		Args:            []string{"-c", VectorDBVolumeLightspeedStackConfigPath},
 		Ports:           []corev1.ContainerPort{{Name: "https", ContainerPort: OpenStackLightspeedAppServerContainerPort}},
 		VolumeMounts:    lightspeedStackMounts,
 		Env:             lsEnvVars,
@@ -120,7 +120,6 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		Resources:       getResourcesOrDefault(nil, corev1.ResourceRequirements{}),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
-
 	containers := []corev1.Container{llamaStackContainer, lightspeedStackContainer}
 
 	// Add dataverse exporter sidecar when data collection is enabled
@@ -165,6 +164,11 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		return corev1.PodTemplateSpec{}, err
 	}
 
+	initContainers, err := buildInitContainers(ctx, h, instance)
+	if err != nil {
+		return corev1.PodTemplateSpec{}, err
+	}
+
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      generateAppServerSelectorLabels(),
@@ -172,16 +176,114 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		},
 		Spec: corev1.PodSpec{
 			ServiceAccountName: OpenStackLightspeedAppServerServiceAccountName,
+			InitContainers:     initContainers,
 			Containers:         containers,
 			Volumes:            volumes,
 		},
 	}, nil
 }
 
-// buildLCoreConfigVolumeAndMount returns the volume and mount for the lightspeed-stack config.
-func buildLCoreConfigVolumeAndMount(volumeDefaultMode int32) (corev1.Volume, corev1.VolumeMount) {
-	vol := corev1.Volume{
-		Name: "lcore-config",
+// buildInitContainers returns the configuration for initContainers that run
+// before the main OGX and Lightspeed Stack containers in the Lightspeed Stack
+// deployment. These initContainers are responsible for generating the final OGX
+// and Lightspeed Stack configuration files, incorporating information from
+// the provided vector database images. For details on their logic, see:
+// (1) assets/vector_database_collect.sh and (2) assets/vector_database_build.py.
+func buildInitContainers(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) ([]corev1.Container, error) {
+	ocp_version, err := DetectOCPVersion(ctx, helper)
+	if err != nil {
+		return []corev1.Container{}, err
+	}
+
+	securityContext := &corev1.SecurityContext{
+		RunAsNonRoot:             &[]bool{true}[0],
+		AllowPrivilegeEscalation: &[]bool{false}[0],
+		Capabilities: &corev1.Capabilities{
+			Drop: []corev1.Capability{"ALL"},
+		},
+	}
+
+	resourceRequirements := corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("100m"),
+			corev1.ResourceMemory: resource.MustParse("256Mi"),
+		},
+		Limits: corev1.ResourceList{
+			corev1.ResourceCPU:    resource.MustParse("500m"),
+			corev1.ResourceMemory: resource.MustParse("1Gi"),
+		},
+	}
+
+	var containers []corev1.Container
+	containers = append(containers, corev1.Container{
+		Name:  "vector-database-collect",
+		Image: instance.Spec.RAGImage,
+		Command: []string{
+			"sh", VectorDBScriptsMountPath + "/" + VectorDBCollectScriptKey,
+			"--vector-db-path", VectorDBVolumeMountPath,
+			"--enable-ocp-rag", strconv.FormatBool(instance.Spec.EnableOCPRAG),
+			"--ocp-version", ocp_version,
+		},
+		SecurityContext: securityContext,
+		Resources:       resourceRequirements,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      VectorDBVolumeName,
+				MountPath: VectorDBVolumeMountPath,
+			},
+			{
+				Name:      VectorDBScriptsVolumeName,
+				MountPath: VectorDBScriptsMountPath,
+				ReadOnly:  true,
+			},
+		},
+	})
+
+	containers = append(containers, corev1.Container{
+		Name:  "vector-database-config-build",
+		Image: apiv1beta1.OpenStackLightspeedDefaultValues.LCoreImageURL,
+		Command: []string{
+			"python3", VectorDBScriptsMountPath + "/" + VectorDBBuildScriptKey,
+			"--vector-db-path", VectorDBVolumeMountPath,
+			"--ogx-config-path", OGXConfigInitContainerMountPath,
+			"--lightspeed-stack-path", LightspeedStackInitContainerMountPath,
+		},
+		SecurityContext: securityContext,
+		Resources:       resourceRequirements,
+		VolumeMounts: []corev1.VolumeMount{
+			{
+				Name:      VectorDBVolumeName,
+				MountPath: VectorDBVolumeMountPath,
+			},
+			{
+				Name:      VectorDBScriptsVolumeName,
+				MountPath: VectorDBScriptsMountPath,
+				ReadOnly:  true,
+			},
+			{
+				Name:      OGXConfigVolumeName,
+				MountPath: OGXConfigInitContainerMountPath,
+				SubPath:   OGXConfigCMKey,
+			},
+			{
+				Name:      LightspeedStackConfig,
+				MountPath: LightspeedStackInitContainerMountPath,
+				SubPath:   LightspeedStackConfigCMKey,
+			},
+		},
+	})
+
+	return containers, nil
+}
+
+// buildLightspeedStackConfigVolume returns the volume for the lightspeed-stack config.
+func buildLightspeedStackConfigVolume(volumeDefaultMode int32) corev1.Volume {
+	return corev1.Volume{
+		Name: LightspeedStackConfig,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -191,19 +293,12 @@ func buildLCoreConfigVolumeAndMount(volumeDefaultMode int32) (corev1.Volume, cor
 			},
 		},
 	}
-	mount := corev1.VolumeMount{
-		Name:      "lcore-config",
-		MountPath: LCoreConfigMountPath,
-		SubPath:   LCoreConfigFilename,
-		ReadOnly:  true,
-	}
-	return vol, mount
 }
 
-// buildLlamaStackConfigVolumeAndMount returns the volume and mount for the llama-stack config.
-func buildLlamaStackConfigVolumeAndMount(volumeDefaultMode int32) (corev1.Volume, corev1.VolumeMount) {
-	vol := corev1.Volume{
-		Name: "llama-stack-config",
+// buildOGXConfigVolume returns the volume for the OGX config.
+func buildOGXConfigVolume(volumeDefaultMode int32) corev1.Volume {
+	return corev1.Volume{
+		Name: OGXConfigVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
@@ -213,13 +308,35 @@ func buildLlamaStackConfigVolumeAndMount(volumeDefaultMode int32) (corev1.Volume
 			},
 		},
 	}
-	mount := corev1.VolumeMount{
-		Name:      "llama-stack-config",
-		MountPath: LlamaStackConfigMountPath,
-		SubPath:   LlamaStackConfigFilename,
-		ReadOnly:  true,
+}
+
+// buildVectorDBScriptsVolume returns the volume for the Vector DB scripts.
+func buildVectorDBScriptsVolume() corev1.Volume {
+	return corev1.Volume{
+		Name: VectorDBScriptsVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{
+				LocalObjectReference: corev1.LocalObjectReference{
+					Name: VectorDBScriptsConfigMapName,
+				},
+				DefaultMode: toPtr(VolumeExecutableMode),
+			},
+		},
 	}
-	return vol, mount
+}
+
+func addVectorDBDataVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount) {
+	*volumes = append(*volumes, corev1.Volume{
+		Name: VectorDBVolumeName,
+		VolumeSource: corev1.VolumeSource{
+			EmptyDir: &corev1.EmptyDirVolumeSource{},
+		},
+	})
+
+	*mounts = append(*mounts, corev1.VolumeMount{
+		Name:      VectorDBVolumeName,
+		MountPath: VectorDBVolumeMountPath,
+	})
 }
 
 // addTLSVolumesAndMounts adds the service-ca TLS certificate volume and mount.
@@ -475,6 +592,11 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 		Value: "all=info",
 	})
 
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "VECTOR_DB_DATA_PATH",
+		Value: VectorDBVolumeMountPath,
+	})
+
 	// Additional CA env vars
 	envVars = append(envVars, buildAdditionalCAEnvVars(instance)...)
 
@@ -559,6 +681,15 @@ func buildConfigMapAnnotations(h *common_helper.Helper, ctx context.Context) (ma
 		}
 	} else {
 		annotations[LlamaStackConfigMapResourceVersionAnnotation] = llamaVersion
+	}
+
+	vectorDBScriptsVersion, err := getConfigMapResourceVersion(ctx, h, VectorDBScriptsConfigMapName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get Vector DB scripts configmap resource version: %w", err)
+		}
+	} else {
+		annotations[VectorDBScriptsConfigMapVersionAnnotation] = vectorDBScriptsVersion
 	}
 
 	return annotations, nil

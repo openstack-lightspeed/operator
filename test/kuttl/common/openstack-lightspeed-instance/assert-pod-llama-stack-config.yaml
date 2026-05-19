@@ -5,5 +5,5 @@ commands:
   - script: |
       #!/bin/bash
       set -euo pipefail
-      ../../common/expected-configs/validate-config.sh lightspeed-stack ../../common/expected-configs/lightspeed-stack-update.yaml
+      ../../common/expected-configs/validate-config.sh ogx_config ../../common/expected-configs/ogx_config.yaml
     timeout: 180

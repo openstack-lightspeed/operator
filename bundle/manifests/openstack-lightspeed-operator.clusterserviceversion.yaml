@@ -25,7 +25,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: AI/Machine Learning
-    createdAt: "2026-04-09T11:08:52Z"
+    createdAt: "2026-05-17T15:20:36Z"
     description: AI-powered virtual assistant for Red Hat OpenStack Services on OpenShift
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -255,7 +255,7 @@ spec:
                     fieldRef:
                       fieldPath: metadata.annotations['olm.targetNamespaces']
                 - name: RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT
-                  value: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+                  value: quay.io/openstack-lightspeed/rag-content:alpha-ogx-os-docs-2025.2
                 - name: RELATED_IMAGE_LCORE_IMAGE_URL_DEFAULT
                   value: quay.io/lightspeed-core/lightspeed-stack:latest
                 - name: RELATED_IMAGE_EXPORTER_IMAGE_URL_DEFAULT
@@ -433,7 +433,7 @@ spec:
     name: Red Hat
     url: https://github.com/openstack-lightspeed/operator
   relatedImages:
-  - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+  - image: quay.io/openstack-lightspeed/rag-content:alpha-ogx-os-docs-2025.2
     name: openstack-lightspeed-image-url-default
   - image: quay.io/lightspeed-core/lightspeed-stack:latest
     name: lcore-image-url-default
