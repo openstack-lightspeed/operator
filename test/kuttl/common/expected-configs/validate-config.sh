@@ -43,7 +43,7 @@ mkdir -p "$KUTTL_TEMP_DIR"
 cleanup() {
   if [ -d "$KUTTL_TEMP_DIR" ]; then
     echo "Cleaning up temporary files..."
-    rm -f "$KUTTL_TEMP_DIR"/actual-${CONFIG_TYPE}-*.yaml 2>/dev/null || true
+    rm -f "$KUTTL_TEMP_DIR"/actual-"${CONFIG_TYPE}"-*.yaml 2>/dev/null || true
   fi
 }
 trap cleanup EXIT INT TERM

@@ -56,7 +56,7 @@
 #  --enable-ocp-rag BOOL    Enable OCP vector DB collection: true/false (required)
 #  --ocp-version VERSION    OCP version to collect, e.g., "X.YZ" (required)
 
-set -euo pipefail
+set -eu
 
 # -- vector_database_collect.sh script parameters ----------------------------
 
@@ -173,7 +173,7 @@ parse_arguments_and_init() {
 }
 
 validate_vector_db_dir() {
-    local vector_db_dir="$1"
+    vector_db_dir="$1"
 
     if [ ! -d "${vector_db_dir}" ]; then
         echo "ERROR: ${vector_db_dir} is not a directory"
@@ -200,7 +200,7 @@ collect_ocp_vector_db_data() {
     echo "Collecting OCP vector DB data ..."
     mkdir -p "${VECTOR_DB_DATA_COLLECT_DIR}"
 
-    local ocp_dir="${OCP_VECTOR_DB_DIR}/ocp_${OCP_VERSION}"
+    ocp_dir="${OCP_VECTOR_DB_DIR}/ocp_${OCP_VERSION}"
     if [ ! -d "${ocp_dir}" ]; then
         echo "Data for OCP version ${OCP_VERSION} not found. Using: ${OCP_VECTOR_DB_DIR_FALLBACK}"
         ocp_dir=${OCP_VECTOR_DB_DIR_FALLBACK}
@@ -214,8 +214,8 @@ collect_ocp_vector_db_data() {
 collect_vector_db_data() {
     echo "Collecting vector DB data ..."
     mkdir -p "${VECTOR_DB_DATA_COLLECT_DIR}"
-    local vector_db_data_collected="false"
-    for dir in ${VECTOR_DB_DIR}/*/; do
+    vector_db_data_collected="false"
+    for dir in "${VECTOR_DB_DIR}"/*/; do
         [ ! -d "$dir" ] && continue
 
         validate_vector_db_dir "$dir"

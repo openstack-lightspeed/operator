@@ -32,7 +32,7 @@ spec:
   - openstack-lightspeed
 EOF
 
-for i in $(seq 1 20); do
+for _i in $(seq 1 20); do
   CSV_VERSION=$(oc get --ignore-not-found=true packagemanifest openstack-lightspeed-operator -o go-template="{{range .status.channels}}{{if eq .name \"${CHANNEL}\"}}{{.currentCSV}}{{\"\n\"}}{{end}}{{end}}")
   if [ -n "${CSV_VERSION}" ]; then
     break
