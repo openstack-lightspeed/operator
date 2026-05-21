@@ -89,41 +89,6 @@ func providerNameToEnvVarName(providerName string) string {
 	return name
 }
 
-// getPostgresCAConfigVolume returns a Volume for the Postgres CA certificate ConfigMap.
-func getPostgresCAConfigVolume() corev1.Volume {
-	defaultMode := VolumeDefaultMode
-	return corev1.Volume{
-		Name: PostgresCAVolume,
-		VolumeSource: corev1.VolumeSource{
-			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{
-					Name: OpenStackLightspeedCAConfigMap,
-				},
-				DefaultMode: &defaultMode,
-			},
-		},
-	}
-}
-
-// getPostgresCAVolumeMount returns a VolumeMount for the Postgres CA certificate.
-func getPostgresCAVolumeMount() corev1.VolumeMount {
-	return corev1.VolumeMount{
-		Name:      PostgresCAVolume,
-		MountPath: OpenStackLightspeedAppCertsMountRoot + "/postgres-ca",
-		ReadOnly:  true,
-	}
-}
-
-// getPostgresCAVolumeMountWithPath returns a VolumeMount for the Postgres CA certificate
-// at the specified mount path. Used by the postgres container itself.
-func getPostgresCAVolumeMountWithPath(mountPath string) corev1.VolumeMount {
-	return corev1.VolumeMount{
-		Name:      PostgresCAVolume,
-		MountPath: mountPath,
-		ReadOnly:  true,
-	}
-}
-
 // generatePostgresSelectorLabels returns selector labels for Postgres components.
 func generatePostgresSelectorLabels() map[string]string {
 	return map[string]string{

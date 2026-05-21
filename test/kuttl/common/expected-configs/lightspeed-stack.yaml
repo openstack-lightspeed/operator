@@ -7,14 +7,14 @@ byok_rag:
   db_path: NONE
 conversation_cache:
   postgres:
-    ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
+    ca_cert_path: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     db: postgres
     gss_encmode: disable
     host: lightspeed-postgres-server.openstack-lightspeed.svc
     namespace: conversation_cache
     password: ${env.POSTGRES_PASSWORD}
     port: 5432
-    ssl_mode: require
+    ssl_mode: verify-full
     user: postgres
   type: postgres
 customization:
@@ -55,14 +55,14 @@ customization:
     \ (which run RHEL).\n"
 database:
   postgres:
-    ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
+    ca_cert_path: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
     db: postgres
     gss_encmode: disable
     host: lightspeed-postgres-server.openstack-lightspeed.svc
     namespace: lcore
     password: ${env.POSTGRES_PASSWORD}
     port: 5432
-    ssl_mode: require
+    ssl_mode: verify-full
     user: postgres
 inference:
   default_model: ibm-granite/granite-3.1-8b-instruct

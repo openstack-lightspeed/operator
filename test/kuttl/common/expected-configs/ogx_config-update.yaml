@@ -115,12 +115,9 @@ storage:
       db_path: /tmp/llama-stack/kv_store.db
       type: kv_sqlite
     postgres_backend:
-      ca_cert_path: /etc/certs/postgres-ca/service-ca.crt
-      gss_encmode: disable
       host: lightspeed-postgres-server.openstack-lightspeed.svc
       password: ${env.POSTGRES_PASSWORD}
       port: 5432
-      ssl_mode: require
       type: sql_postgres
       user: postgres
     sql_default:

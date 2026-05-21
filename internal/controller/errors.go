@@ -30,12 +30,15 @@ var (
 	ErrDeleteSARClusterRole         = errors.New("failed to delete SAR cluster role")
 	ErrDeleteSARClusterRoleBinding  = errors.New("failed to delete SAR cluster role binding")
 	ErrGenerateAPIConfigmap         = errors.New("failed to generate OpenStack Lightspeed configmap")
-	ErrGetAdditionalCACM            = errors.New("failed to get additional CA configmap")
-	ErrGetProxyCACM                 = errors.New("failed to get proxy CA configmap")
 	ErrGetTLSSecret                 = errors.New("failed to get TLS secret")
 	ErrCreateLlamaStackConfigMap    = errors.New("failed to create Llama Stack configmap")
 	ErrGenerateLlamaStackConfigMap  = errors.New("failed to generate Llama Stack configmap")
 	ErrCreateExporterConfigMap      = errors.New("failed to create exporter configmap")
+	ErrReadSystemCABundle           = errors.New("failed to read system CA bundle")
+	ErrParseSystemCABundle          = errors.New("failed to parse system CA bundle")
+	ErrParseUserCA                  = errors.New("failed to parse user CA certificate")
+	ErrCreateCABundle               = errors.New("failed to create CA bundle configmap")
+	ErrGetCAConfigMap               = errors.New("failed to get CA configmap")
 
 	// Console Plugin Errors
 	ErrReconcileConsolePlugin     = errors.New("failed to reconcile console plugin")
