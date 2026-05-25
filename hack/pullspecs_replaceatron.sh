@@ -37,7 +37,9 @@ for var_name in $RELATED_IMAGE_VARS; do
 
         if [[ -n "$current_csv_value" ]]; then
             # Escape special characters for sed
+            # shellcheck disable=SC2016
             escaped_current=$(printf '%s\n' "$current_csv_value" | sed 's/[[\.*^$()+?{|]/\\&/g')
+            # shellcheck disable=SC2016
             escaped_new=$(printf '%s\n' "$current_value" | sed 's/[[\.*^$()+?{|]/\\&/g')
 
             # Replace all occurrences of the current value with the new value
