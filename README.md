@@ -226,14 +226,51 @@ pre-commit run --all-files
 KUTTL (KUbernetes Test TooL) tests validate the operator's behavior in a real
 OpenShift environment.
 
-Before running the tests ensure that:
-- `oc` CLI tool is available in your PATH and you can access an OpenShift cluster
-(e.g., deployed with `crc`) with it
-- The `openshift-lightspeed` namespace is empty or non-existing to prevent collisions
+Kuttl tests are run using the `kuttl-test` make target, which has some
+requirements:
 
-Once you are ready you can run the KUTTL tests using:
+- `kubectl-kuttl`, `diff` and `oc` binaries exist and are in the `PATH`.
+- An OpenShift cluster is up and running (e.g., one deployed with `crc`).
+- `oc` CLI tool can access the OpenShift cluster and is logged in.
+- The OpenStack Lightspeed operator to be tested is installed and running in the
+  OpenShift cluster in the `openstack-lightspeed` namespace.
+
+Using the `kuttl-test` directly is uncommon, as we have 2 helpful targets:
+
+- `kuttl-test-run`: Given a catalog image location deploys OpenStack Lightspeed
+  on the OpenShift cluster, runs the tests (using `kuttl-test`), and removes
+  OpenStack Lightspeed.
+
+- `kuttl-test-ocp`: Builds the operator, bundle and catalog images, pushes them
+   to the OpenShift cluster internal registry, and then runs the kuttl tests
+   (using `kuttl-test-run`).
+
+In both cases it will check that the `kubectl-kuttl` binary is present in the
+system and download it if it's not (target `kuttl`) and both need the
+`openstack-lightspeed` namespace to be empty or non-existing to prevent
+collisions.
+
+For the `kuttl-test-run` target the images need to be available in an image
+registry accessible by the OpenShift cluster.  We can build these images
+ourselves or use images built by others, in any case variable `CATALOG_IMG`
+must point to the catalog image before running `kuttl-test-run`.
+
+Using `kuttl-test-ocp` is useful to build and test everything, but it's too
+wasteful if we are going to run kuttl tests multiple times, where
+`kuttl-test-run` is better as it doesn't rebuild the images on each run.
+
+A useful option when working on kuttl tests, without changes on the operator
+itself, is to use `kuttl-test-ocp` the first time:
 
 ```bash
+make kuttl-test-ocp
+```
+
+And then set `CATALOG_IMG` and use the `kuttl-test-run` target in
+consecutive runs:
+
+```bash
+export CATALOG_IMG=image-registry.openshift-image-registry.svc:5000/openshift-marketplace/operator-catalog:latest
 make kuttl-test-run
 ```
 
