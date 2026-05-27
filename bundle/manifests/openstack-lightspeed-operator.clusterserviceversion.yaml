@@ -25,7 +25,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: AI/Machine Learning
-    createdAt: "2026-05-27T08:37:10Z"
+    createdAt: "2026-05-27T13:26:52Z"
     description: AI-powered virtual assistant for Red Hat OpenStack Services on OpenShift
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -114,7 +114,7 @@ spec:
         name: metrics-reader-token
         version: v1
       - kind: PersistentVolumeClaim
-        name: openstack-lightspeed-data
+        name: openstack-lightspeed-database
         version: v1
       specDescriptors:
       - description: |-

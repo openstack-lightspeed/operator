@@ -6,4 +6,8 @@ delete:
     kind: OpenStackLightspeed
     name: openstack-lightspeed
     namespace: openstack-lightspeed
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: openstack-lightspeed-database
+    namespace: openstack-lightspeed
 

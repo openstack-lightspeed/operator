@@ -252,7 +252,7 @@ func reconcilePostgresPVC(h *common_helper.Helper, ctx context.Context, instance
 			return fmt.Errorf("%w: requested size %s but existing PVC has %s",
 				ErrPostgresPVCSizeMismatch, requestedQty.String(), existingQty.String())
 		}
-		h.GetLogger().Info("Postgres PVC already exists with matching size", "name", pvc.Name)
+		h.GetLogger().Info("Reusing the existing PostgreSQL PVC with a matching size", "name", pvc.Name)
 		return nil
 	}
 
