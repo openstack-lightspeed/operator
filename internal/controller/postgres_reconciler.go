@@ -28,6 +28,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -53,6 +54,7 @@ func ReconcilePostgresResources(h *common_helper.Helper, ctx context.Context, in
 // Uses fail-fast pattern where the first error stops execution.
 func ReconcilePostgresDeployment(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	tasks := []ReconcileTask{
+		{Name: "PostgresPVC", Task: reconcilePostgresPVC},
 		{Name: "PostgresDeployment", Task: reconcilePostgresDeploymentTask},
 		{Name: "PostgresService", Task: reconcilePostgresServiceTask},
 	}
@@ -222,7 +224,68 @@ func reconcilePostgresNetworkPolicy(h *common_helper.Helper, ctx context.Context
 	return nil
 }
 
-func reconcilePostgresDeploymentTask(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcilePostgresPVC(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
+	requestedQty := resource.MustParse(PostgresDataPVCDefaultSize)
+	var storageClass string
+	if instance.Spec.Database != nil {
+		if !instance.Spec.Database.Size.IsZero() {
+			requestedQty = instance.Spec.Database.Size
+		}
+		storageClass = instance.Spec.Database.Class
+	}
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	pvcKey := client.ObjectKey{
+		Name:      PostgresDataPVCName,
+		Namespace: h.GetBeforeObject().GetNamespace(),
+	}
+
+	err := h.GetClient().Get(ctx, pvcKey, pvc)
+	if err != nil && !errors.IsNotFound(err) {
+		return fmt.Errorf("%w: %v", ErrGetPostgresPVC, err)
+	}
+
+	if err == nil {
+		// PVC already exists, validate if the size matches
+		existingQty := pvc.Spec.Resources.Requests[corev1.ResourceStorage]
+		if requestedQty.Cmp(existingQty) != 0 {
+			return fmt.Errorf("%w: requested size %s but existing PVC has %s",
+				ErrPostgresPVCSizeMismatch, requestedQty.String(), existingQty.String())
+		}
+		h.GetLogger().Info("Postgres PVC already exists with matching size", "name", pvc.Name)
+		return nil
+	}
+
+	// PVC does not exist, create it
+	pvc = &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      PostgresDataPVCName,
+			Namespace: h.GetBeforeObject().GetNamespace(),
+		},
+	}
+
+	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), pvc, func() error {
+		pvc.Spec.AccessModes = []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce}
+		pvc.Spec.Resources = corev1.VolumeResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceStorage: requestedQty,
+			},
+		}
+		if storageClass != "" {
+			pvc.Spec.StorageClassName = &storageClass
+		}
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrCreatePostgresPVC, err)
+	}
+
+	h.GetLogger().Info("Postgres PVC reconciled", "name", pvc.Name, "result", result)
+	return nil
+}
+
+func reconcilePostgresDeploymentTask(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      PostgresDeploymentName,

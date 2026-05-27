@@ -2,6 +2,20 @@
 #       Assert that the operator created all expected resources               #
 ##############################################################################
 
+# Postgres PVC (persistent storage is always enabled)
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openstack-lightspeed-data
+  namespace: openstack-lightspeed
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+
 # Postgres resources
 ---
 apiVersion: v1

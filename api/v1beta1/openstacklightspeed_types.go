@@ -19,6 +19,7 @@ package v1beta1
 import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/condition"
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -48,6 +49,18 @@ const (
 	MaxTokensForResponseDefault = 2048
 )
 
+// DatabaseSpec defines configuration for persistent PostgreSQL storage.
+type DatabaseSpec struct {
+	// +kubebuilder:validation:Optional
+	// Size of the PersistentVolumeClaim for PostgreSQL data. Defaults to 1Gi.
+	Size resource.Quantity `json:"size,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// StorageClass name for the PersistentVolumeClaim. If omitted, the cluster's
+	// default StorageClass is used.
+	Class string `json:"class,omitempty"`
+}
+
 // OpenStackLightspeedSpec defines the desired state of OpenStackLightspeed
 type OpenStackLightspeedSpec struct {
 	OpenStackLightspeedCore `json:",inline"`
@@ -65,6 +78,12 @@ type OpenStackLightspeedSpec struct {
 	// Allows forcing a specific OCP version instead of auto-detection.
 	// Format should be like "4.15", "4.16", etc.
 	OCPRAGVersionOverride string `json:"ocpVersionOverride,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Database configures persistent storage for PostgreSQL data.
+	// When omitted, an emptyDir volume is used (data is lost on pod reschedule).
+	// When set, a PersistentVolumeClaim is created and mounted.
+	Database *DatabaseSpec `json:"database,omitempty"`
 }
 
 // OpenStackLightspeedCore defines the desired state of OpenStackLightspeed
@@ -154,6 +173,7 @@ type OpenStackLightspeedStatus struct {
 // +operator-sdk:csv:customresourcedefinitions:resources={{ServiceAccount,v1,lightspeed-app-server}}
 // +operator-sdk:csv:customresourcedefinitions:resources={{NetworkPolicy,v1,lightspeed-app-server}}
 // +operator-sdk:csv:customresourcedefinitions:resources={{NetworkPolicy,v1,lightspeed-postgres-server}}
+// +operator-sdk:csv:customresourcedefinitions:resources={{PersistentVolumeClaim,v1,openstack-lightspeed-data}}
 // +operator-sdk:csv:customresourcedefinitions:resources={{ClusterRole,v1,lightspeed-app-server-sar-role}}
 // +operator-sdk:csv:customresourcedefinitions:resources={{ClusterRoleBinding,v1,lightspeed-app-server-sar-role-binding}}
 // +operator-sdk:csv:customresourcedefinitions:resources={{Subscription,v1alpha1}}

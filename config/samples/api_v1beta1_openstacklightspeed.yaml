@@ -11,3 +11,7 @@ spec:
   llmCredentials: openstack-lightspeed-apitoken
   modelName: llama3.1:8b
   tlsCACertBundle: openstack-lightspeed-certs
+  # Uncomment to customize persistent PostgreSQL storage:
+  # database:
+  #   size: "5Gi"
+  #   class: "my-storage-class"

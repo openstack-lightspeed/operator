@@ -49,6 +49,26 @@ spec:
           spec:
             description: OpenStackLightspeedSpec defines the desired state of OpenStackLightspeed
             properties:
+              database:
+                description: |-
+                  Database configures persistent storage for PostgreSQL data.
+                  When omitted, an emptyDir volume is used (data is lost on pod reschedule).
+                  When set, a PersistentVolumeClaim is created and mounted.
+                properties:
+                  class:
+                    description: |-
+                      StorageClass name for the PersistentVolumeClaim. If omitted, the cluster's
+                      default StorageClass is used.
+                    type: string
+                  size:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    description: Size of the PersistentVolumeClaim for PostgreSQL
+                      data. Defaults to 1Gi.
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                type: object
               enableOCPRAG:
                 default: false
                 description: Enables automatic OCP documentation based on cluster
