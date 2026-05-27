@@ -90,6 +90,9 @@ spec:
       - kind: Secret
         name: metrics-reader-token
         version: v1
+      - kind: PersistentVolumeClaim
+        name: openstack-lightspeed-data
+        version: v1
       specDescriptors:
       - description: |-
           Secret name containing API token for the LLMEndpoint. The secret must contain

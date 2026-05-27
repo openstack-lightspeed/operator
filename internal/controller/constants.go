@@ -72,6 +72,8 @@ const (
 	PostgresConfigVolumeMountPath                = "/usr/share/pgsql/postgresql.conf.sample"
 	PostgresDataVolume                           = "postgres-data"
 	PostgresDataVolumeMountPath                  = "/var/lib/pgsql"
+	PostgresDataPVCName                          = "openstack-lightspeed-data"
+	PostgresDataPVCDefaultSize                   = "1Gi"
 	PostgresVarRunVolumeName                     = "lightspeed-postgres-var-run"
 	PostgresVarRunVolumeMountPath                = "/var/run/postgresql"
 	TmpVolumeName                                = "tmp-writable-volume"

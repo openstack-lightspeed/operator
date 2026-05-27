@@ -27,7 +27,6 @@ import (
 )
 
 // buildPostgresPodTemplateSpec builds the pod template spec for the Postgres deployment.
-// If configMapChanged is true, it adds a force-reload timestamp to trigger pod restart.
 func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 	// Build volumes and volume mounts
 	volumes := []corev1.Volume{}
@@ -85,12 +84,12 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 		SubPath:   PostgresConfigKey,
 	})
 
-	// TODO: CRITICAL - Replace EmptyDir with a PVC. With EmptyDir all conversation
-	// history is lost if the pod is rescheduled or the OCP control plane goes down.
 	volumes = append(volumes, corev1.Volume{
 		Name: PostgresDataVolume,
 		VolumeSource: corev1.VolumeSource{
-			EmptyDir: &corev1.EmptyDirVolumeSource{},
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: PostgresDataPVCName,
+			},
 		},
 	})
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{

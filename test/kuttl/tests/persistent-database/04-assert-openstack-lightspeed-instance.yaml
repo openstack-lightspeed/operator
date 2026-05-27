@@ -1,0 +1,54 @@
+##############################################################################
+#       Assert that the PVC was created with the custom size                 #
+##############################################################################
+
+# Postgres PVC with custom size from CR
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: openstack-lightspeed-data
+  namespace: openstack-lightspeed
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 2Gi
+
+# Postgres Deployment should be running
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lightspeed-postgres-server
+  namespace: openstack-lightspeed
+status:
+  replicas: 1
+  readyReplicas: 1
+  availableReplicas: 1
+
+# OpenStackLightspeed CR status
+---
+apiVersion: lightspeed.openstack.org/v1beta1
+kind: OpenStackLightspeed
+metadata:
+  name: openstack-lightspeed
+  namespace: openstack-lightspeed
+spec:
+  database:
+    size: "2Gi"
+status:
+  conditions:
+    - type: Ready
+      status: "True"
+      reason: Ready
+      message: Setup complete
+    - type: OCPRAGReady
+      status: "True"
+      reason: Ready
+      message: OCP RAG is disabled
+    - type: OpenStackLightspeedReady
+      status: "True"
+      reason: Ready
+      message: OpenStack Lightspeed created
