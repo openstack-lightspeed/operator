@@ -120,7 +120,7 @@ func reconcileSARRole(h *common_helper.Helper, ctx context.Context, instance *ap
 			{
 				APIGroups: []string{"config.openshift.io"},
 				Resources: []string{"clusterversions"},
-				Verbs:     []string{"get"},
+				Verbs:     []string{"list", "get"},
 			},
 			{
 				APIGroups:     []string{""},

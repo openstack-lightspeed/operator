@@ -42,6 +42,10 @@ CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(TAG)
 CATALOG_NAME ?= openstack-lightspeed-catalog
 CATALOG_CHANNEL ?= alpha
 
+# OpenShift internal registry support for local development/testing.
+OCP_REGISTRY_NAMESPACE ?= openstack-lightspeed
+OCP_INTERNAL_REGISTRY ?= image-registry.openshift-image-registry.svc:5000
+
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
 BUNDLE_IMG ?= $(IMAGE_TAG_BASE)-bundle:$(TAG)
@@ -280,6 +284,20 @@ kuttl-test: kuttl ## Run kuttl tests
 
 .PHONY: kuttl-test-run
 kuttl-test-run: kuttl openstack-lightspeed-deploy kuttl-test openstack-lightspeed-undeploy
+
+.PHONY: ocp-registry-push
+ocp-registry-push: ## Push images to the OpenShift internal registry.
+	bash scripts/ocp-registry-push.sh $(CONTAINER_TOOL) $(OCP_REGISTRY_NAMESPACE) $(IMG) $(CATALOG_IMG)
+
+.PHONY: ocp-catalog-build
+ocp-catalog-build: opm ## Build a catalog image for the OpenShift internal registry.
+	bash scripts/ocp-catalog-build.sh $(CONTAINER_TOOL) $(BUNDLE_IMG) $(CATALOG_IMG) $(OPM)
+
+.PHONY: kuttl-test-ocp
+kuttl-test-ocp: IMG = $(OCP_INTERNAL_REGISTRY)/$(OCP_REGISTRY_NAMESPACE)/operator:latest
+kuttl-test-ocp: BUNDLE_IMG = $(OCP_INTERNAL_REGISTRY)/openshift-marketplace/operator-bundle:$(TAG)
+kuttl-test-ocp: CATALOG_IMG = $(OCP_INTERNAL_REGISTRY)/openshift-marketplace/operator-catalog:$(TAG)
+kuttl-test-ocp: docker-build bundle bundle-build ocp-catalog-build ocp-registry-push kuttl-test-run
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
 # $1 - target path with name of binary

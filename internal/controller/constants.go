@@ -96,6 +96,18 @@ const (
 	RHOSOLightspeedOwnerIDLabel    = "openstack.org/lightspeed-owner-id"
 	ServiceIDRHOSO                 = "rhos-lightspeed"
 
+	// Console Plugin
+	ConsoleUIConfigMapName         = "lightspeed-console-plugin"
+	ConsoleUIServiceCertSecretName = "lightspeed-console-plugin-cert"
+	ConsoleUIServiceName           = "lightspeed-console-plugin"
+	ConsoleUIDeploymentName        = "lightspeed-console-plugin"
+	ConsoleUIHTTPSPort             = int32(9443)
+	ConsoleUIPluginName            = "lightspeed-console-plugin"
+	ConsoleUIServiceAccountName    = "lightspeed-console-plugin"
+	ConsoleCRName                  = "cluster"
+	ConsoleProxyAlias              = "ols"
+	ConsoleUINetworkPolicyName     = "lightspeed-console-plugin"
+
 	// Azure
 	AzureOpenAIType = "azure_openai"
 
@@ -209,3 +221,12 @@ var vectorDatabaseCollectScript string
 //
 //go:embed assets/vector_database_build.py
 var vectorDatabaseBuildScript string
+
+//go:embed assets/console_nginx.conf.tmpl
+var consoleNginxConfigTemplate string
+
+// consoleLocalesRewriteAwk is the awk script that performs case-preserving
+// OpenShift -> OpenStack replacement only in JSON values (after the first `": `).
+//
+//go:embed assets/console_locales_rewrite.awk
+var consoleLocalesRewriteAwk string

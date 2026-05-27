@@ -38,6 +38,12 @@ const (
 	// PostgresContainerImage is the fall-back container image for PostgreSQL
 	PostgresContainerImage = "registry.redhat.io/rhel9/postgresql-16:latest"
 
+	// ConsoleContainerImage is the fall-back container image for the Console Plugin (PatternFly 6, OCP >= 4.19)
+	ConsoleContainerImage = "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9:1.0.12"
+
+	// ConsoleContainerImagePF5 is the fall-back console image for PatternFly 5 (OCP < 4.19)
+	ConsoleContainerImagePF5 = "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9:1.0.12"
+
 	// MaxTokensForResponseDefault is the default maximum number of tokens that should be used for response
 	MaxTokensForResponseDefault = 2048
 )
@@ -186,6 +192,8 @@ type OpenStackLightspeedDefaults struct {
 	LCoreImageURL        string
 	ExporterImageURL     string
 	PostgresImageURL     string
+	ConsoleImageURL      string
+	ConsoleImagePF5URL   string
 	MaxTokensForResponse int
 }
 
@@ -203,6 +211,10 @@ func SetupDefaults() {
 			"RELATED_IMAGE_EXPORTER_IMAGE_URL_DEFAULT", ExporterContainerImage),
 		PostgresImageURL: util.GetEnvVar(
 			"RELATED_IMAGE_POSTGRES_IMAGE_URL_DEFAULT", PostgresContainerImage),
+		ConsoleImageURL: util.GetEnvVar(
+			"RELATED_IMAGE_CONSOLE_IMAGE_URL_DEFAULT", ConsoleContainerImage),
+		ConsoleImagePF5URL: util.GetEnvVar(
+			"RELATED_IMAGE_CONSOLE_PF5_IMAGE_URL_DEFAULT", ConsoleContainerImagePF5),
 		MaxTokensForResponse: MaxTokensForResponseDefault,
 	}
 
