@@ -91,7 +91,7 @@ spec:
         name: metrics-reader-token
         version: v1
       - kind: PersistentVolumeClaim
-        name: openstack-lightspeed-data
+        name: openstack-lightspeed-database
         version: v1
       specDescriptors:
       - description: |-
