@@ -83,8 +83,8 @@ func buildLCoreServiceConfig(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLig
 		"color_log":    false,
 		"access_log":   true,
 		"tls_config": map[string]interface{}{
-			"tls_certificate_path": "/etc/certs/lightspeed-tls/tls.crt",
-			"tls_key_path":         "/etc/certs/lightspeed-tls/tls.key",
+			"tls_certificate_path": OpenStackLightspeedTLSCertPath,
+			"tls_key_path":         OpenStackLightspeedTLSKeyPath,
 		},
 	}
 }
@@ -133,7 +133,7 @@ func buildLCoreDatabaseConfig(h *common_helper.Helper, _ *apiv1beta1.OpenStackLi
 			"user":         PostgresDefaultUser,
 			"ssl_mode":     PostgresDefaultSSLMode,
 			"gss_encmode":  "disable",
-			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
+			"ca_cert_path": CABundleMountPath,
 
 			// Environment variable substitution via llama_stack.core.stack.replace_env_vars
 			"password": "${env.POSTGRES_PASSWORD}",
@@ -166,7 +166,7 @@ func buildLCoreConversationCacheConfig(h *common_helper.Helper, _ *apiv1beta1.Op
 			"password":     "${env.POSTGRES_PASSWORD}",
 			"ssl_mode":     PostgresDefaultSSLMode,
 			"gss_encmode":  "disable",
-			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
+			"ca_cert_path": CABundleMountPath,
 			"namespace":    "conversation_cache",
 		},
 	}

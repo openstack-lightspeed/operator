@@ -17,7 +17,6 @@ limitations under the License.
 package controller
 
 import (
-	"path"
 	"strconv"
 
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
@@ -96,10 +95,6 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 		Name:      PostgresDataVolume,
 		MountPath: PostgresDataVolumeMountPath,
 	})
-
-	// Postgres CA volume
-	volumes = append(volumes, getPostgresCAConfigVolume())
-	volumeMounts = append(volumeMounts, getPostgresCAVolumeMountWithPath(path.Join(OpenStackLightspeedAppCertsMountRoot, PostgresCAVolume)))
 
 	// Var run volume (writable runtime directory)
 	volumes = append(volumes, corev1.Volume{

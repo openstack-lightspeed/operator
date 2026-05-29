@@ -33,7 +33,6 @@ const (
 	OpenStackLightspeedAppServerServicePort        = 8443
 	OpenStackLightspeedAppServerServiceName        = "lightspeed-app-server"
 	OpenStackLightspeedAppServerNetworkPolicyName  = "lightspeed-app-server"
-	OpenStackLightspeedCertsSecretName             = "lightspeed-tls"
 	OpenStackLightspeedDefaultProvider             = "openstack-lightspeed-provider"
 	OpenStackLightspeedVectorDBPath                = "/rag/vector_db/os_product_docs"
 
@@ -43,26 +42,16 @@ const (
 	MetricsReaderServiceAccountTokenSecretName = "metrics-reader-token"
 	MetricsReaderServiceAccountName            = "lightspeed-operator-metrics-reader"
 
-	// Cert / CA
-	OpenStackLightspeedAppCertsMountRoot = "/etc/certs"
-	OpenStackLightspeedCAConfigMap       = "openshift-service-ca.crt"
-	OpenShiftCAVolumeName                = "openshift-ca"
-	AdditionalCAVolumeName               = "additional-ca"
-	AdditionalCACertFile                 = "cert.crt"
-
 	// Postgres
-	PostgresCAVolume                             = "cm-olspostgresca"
 	PostgresDeploymentName                       = "lightspeed-postgres-server"
 	PostgresServiceName                          = "lightspeed-postgres-server"
 	PostgresSecretName                           = "lightspeed-postgres-secret"
-	PostgresCertsSecretName                      = "lightspeed-postgres-certs"
 	PostgresBootstrapSecretName                  = "lightspeed-postgres-bootstrap"
 	PostgresConfigMapName                        = "lightspeed-postgres-conf"
 	PostgresNetworkPolicyName                    = "lightspeed-postgres-server"
 	PostgresServicePort                          = int32(5432)
 	PostgresDefaultUser                          = "postgres"
 	PostgresDefaultDbName                        = "postgres"
-	PostgresDefaultSSLMode                       = "require"
 	PostgresSharedBuffers                        = "256MB"
 	PostgresMaxConnections                       = 100
 	OpenStackLightspeedComponentPasswordFileName = "password"
@@ -190,12 +179,79 @@ const (
 	VectorDBScriptsConfigMapVersionAnnotation    = "ols.openshift.io/vector-db-scripts-configmap-version"
 	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
 	LCoreConfigMapResourceVersionAnnotation      = "ols.openshift.io/lcore-configmap-version"
+	CABundleConfigMapVersionAnnotation           = "ols.openshift.io/ca-bundle-configmap-version"
 
 	// Volume Permissions
 	// These constants define file permissions for volumes mounted in containers.
 	VolumeDefaultMode    = int32(420)
 	VolumeRestrictedMode = int32(0600)
 	VolumeExecutableMode = int32(0755)
+
+	// CABundleConfigMapName is the name of the ConfigMap that stores the
+	// CA certificate bundle. It aggregates certificates from three sources —
+	// operator system CAs, the OpenShift service serving CA (for in-cluster
+	// service-to-service TLS), and the OpenShift API server CA — along with
+	// any user-provided additional CAs.
+	CABundleConfigMapName = "openstack-lightspeed-ca-bundle"
+
+	// CABundleKey is the key within the CA bundle ConfigMap under which
+	// the PEM-encoded certificate data is stored.
+	CABundleKey = "tls-ca-bundle.pem"
+
+	// CABundleVolumeName is the name of the volume used to mount the
+	// CA bundle ConfigMap into containers.
+	CABundleVolumeName = "ca-bundle"
+
+	// CABundleMountPath is the filesystem path where the CA bundle is
+	// mounted inside application containers.
+	CABundleMountPath = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+
+	// SystemTLSCABundlePath is the path to the system-wide CA certificate bundle
+	// on the operator pod's filesystem. Used to read trusted root certificates
+	// when building the CA bundle.
+	SystemTLSCABundlePath = "/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem"
+
+	// KubeRootCAConfigMap is the name of the ConfigMap auto-created by
+	// kube-controller-manager in every namespace, containing the CA certificate
+	// that signs the API server's serving certificate. Read during CA
+	// bundle reconciliation and merged into the bundle.
+	KubeRootCAConfigMap = "kube-root-ca.crt"
+
+	// OpenStackLightspeedTLSCertPath is the path to the TLS certificate file
+	// inside the lightspeed-service-api container, used to serve HTTPS.
+	OpenStackLightspeedTLSCertPath = OpenStackLightspeedAppCertsMountRoot + "/lightspeed-tls/tls.crt"
+
+	// OpenStackLightspeedTLSKeyPath is the path to the TLS private key file
+	// inside the lightspeed-service-api container, used to serve HTTPS.
+	OpenStackLightspeedTLSKeyPath = OpenStackLightspeedAppCertsMountRoot + "/lightspeed-tls/tls.key"
+
+	// OpenStackLightspeedCertsSecretName is the name of the Secret auto-provisioned
+	// by the OpenShift service-ca operator when the lightspeed-app-server Service is
+	// annotated with service.beta.openshift.io/serving-cert-secret-name. Contains
+	// tls.crt and tls.key used by the lightspeed-service-api container to serve HTTPS.
+	OpenStackLightspeedCertsSecretName = "lightspeed-tls"
+
+	// PostgresCertsSecretName is the name of the Secret auto-provisioned by the
+	// OpenShift service-ca operator when the lightspeed-postgres-server Service is
+	// annotated with service.beta.openshift.io/serving-cert-secret-name. Contains
+	// tls.crt and tls.key used by the postgres container to serve TLS connections.
+	PostgresCertsSecretName = "lightspeed-postgres-certs"
+
+	// PostgresDefaultSSLMode is the sslmode used when connecting to PostgreSQL.
+	// "verify-full" requires a valid server certificate and checks
+	// that the server hostname matches the certificate CN/SAN, ensuring both
+	// encryption and authentication of the database connection.
+	PostgresDefaultSSLMode = "verify-full"
+
+	// OpenStackLightspeedAppCertsMountRoot is the base directory under which
+	// all application certificate volumes are mounted inside application containers.
+	OpenStackLightspeedAppCertsMountRoot = "/etc/certs"
+
+	// OpenShiftServiceCAConfigMap is the name of the ConfigMap containing the
+	// OpenShift service serving CA certificate (public part only). This is the CA
+	// that signs TLS certificates auto-provisioned for Services via the
+	// service.beta.openshift.io/serving-cert-secret-name annotation.
+	OpenShiftServiceCAConfigMap = "openshift-service-ca.crt"
 )
 
 // PostgreSQL Bootstrap Script - creates database, extensions, and schemas

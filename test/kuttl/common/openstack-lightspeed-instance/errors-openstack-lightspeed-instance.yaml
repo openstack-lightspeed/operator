@@ -79,6 +79,14 @@ kind: ConsolePlugin
 metadata:
   name: lightspeed-console-plugin
 
+# CA bundle ConfigMap should be gone
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openstack-lightspeed-ca-bundle
+  namespace: openstack-lightspeed
+
 # Postgres resources should be gone
 ---
 apiVersion: apps/v1

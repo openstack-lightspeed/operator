@@ -69,40 +69,78 @@ metadata:
 spec:
   template:
     spec:
+      initContainers:
+        - name: vector-database-collect
+        - name: vector-database-config-build
       containers:
-      - name: llama-stack
-        env:
-        - name: OPENSTACK_LIGHTSPEED_PROVIDER_API_KEY
-          valueFrom:
-            secretKeyRef:
-              key: apitoken
-              name: openstack-lightspeed-apitoken-update
-        - name: VLLM_URL
-          value: http://mock-llm-api-server-pod-UPDATE:8000/v1
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: password
-              name: lightspeed-postgres-secret
-        - name: LLAMA_STACK_LOGGING
-          value: core=debug,providers=info
-        - name: OGX_LOGGING
-          value: core=debug,providers=info
-        - name: VECTOR_DB_DATA_PATH
-          value: /vector-db-discovered-values
-        - name: REQUESTS_CA_BUNDLE
-          value: /etc/certs/additional-ca/cert.crt
-        - name: SSL_CERT_FILE
-          value: /etc/certs/additional-ca/cert.crt
-      - name: lightspeed-service-api
-        env:
-        - name: LIGHTSPEED_STACK_LOG_LEVEL
-          value: ERROR
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              key: password
-              name: lightspeed-postgres-secret
+        - name: llama-stack
+          env:
+            - name: OPENSTACK_LIGHTSPEED_PROVIDER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  key: apitoken
+                  name: openstack-lightspeed-apitoken-update
+            - name: VLLM_URL
+              value: http://mock-llm-api-server-pod-UPDATE:8000/v1
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: lightspeed-postgres-secret
+            - name: LLAMA_STACK_LOGGING
+              value: core=debug,providers=info
+            - name: OGX_LOGGING
+              value: core=debug,providers=info
+            - name: VECTOR_DB_DATA_PATH
+              value: /vector-db-discovered-values
+          volumeMounts:
+            - name: ca-bundle
+              mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+              subPath: tls-ca-bundle.pem
+              readOnly: true
+            - name: vector-db-discovered-values
+              mountPath: /vector-db-discovered-values
+            - name: llama-cache
+              mountPath: /tmp/llama-stack
+        - name: lightspeed-service-api
+          env:
+            - name: LIGHTSPEED_STACK_LOG_LEVEL
+              value: ERROR
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  key: password
+                  name: lightspeed-postgres-secret
+          volumeMounts:
+            - name: ca-bundle
+              mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
+              subPath: tls-ca-bundle.pem
+              readOnly: true
+            - name: vector-db-discovered-values
+              mountPath: /vector-db-discovered-values
+            - name: tls-certs
+              mountPath: /etc/certs/lightspeed-tls
+              readOnly: true
+      volumes:
+        - name: ogx-config
+          configMap:
+            name: llama-stack-config
+        - name: lightspeed-stack-config
+          configMap:
+            name: lightspeed-stack-config
+        - name: vector-db-scripts
+          configMap:
+            name: vector-db-scripts
+        - name: ca-bundle
+          configMap:
+            name: openstack-lightspeed-ca-bundle
+        - name: vector-db-discovered-values
+          emptyDir: {}
+        - name: llama-cache
+          emptyDir: {}
+        - name: tls-certs
+          secret:
+            secretName: lightspeed-tls
 status:
   replicas: 1
   readyReplicas: 1
@@ -113,6 +151,14 @@ apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: lightspeed-app-server
+  namespace: openstack-lightspeed
+
+# CA bundle ConfigMap
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: openstack-lightspeed-ca-bundle
   namespace: openstack-lightspeed
 
 # Vector DB init containers scripts
