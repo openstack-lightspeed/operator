@@ -108,6 +108,7 @@ spec:
                 description: Project ID for LLM providers that require it (e.g., WatsonX)
                 type: string
               logging:
+                default: {}
                 description: Logging configuration for OpenStackLightspeed components
                 properties:
                   dataverseExporterLogLevel:
@@ -135,10 +136,10 @@ spec:
                     - CRITICAL
                     type: string
                   ogxLogLevel:
+                    default: all=info
                     description: Log level configuration for the OGX/llama-stack container.
                       Supports standard levels (INFO, DEBUG) or fine-grained control
                       using format "component=level,component=level" (e.g., "core=debug,providers=info").
-                      Defaults to "all=info" if empty.
                     type: string
                 type: object
               maxTokensForResponse:

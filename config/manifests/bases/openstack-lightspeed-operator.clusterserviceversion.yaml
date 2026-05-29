@@ -115,7 +115,7 @@ spec:
         path: logging.lightspeedStackLogLevel
       - description: Log level configuration for the OGX/llama-stack container. Supports
           standard levels (INFO, DEBUG) or fine-grained control using format "component=level,component=level"
-          (e.g., "core=debug,providers=info"). Defaults to "all=info" if empty.
+          (e.g., "core=debug,providers=info").
         displayName: OGX Log Level
         path: logging.ogxLogLevel
       - description: Name of the model to use at the API endpoint provided in LLMEndpoint

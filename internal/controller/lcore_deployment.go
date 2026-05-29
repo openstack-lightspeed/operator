@@ -672,9 +672,6 @@ func buildLightspeedStackReadinessProbe() *corev1.Probe {
 // Defaults to "all=info" if not specified.
 func getOGXLogLevel(instance *apiv1beta1.OpenStackLightspeed) string {
 	logLevel := instance.Spec.Logging.OGXLogLevel
-	if logLevel == "" {
-		return "all=info"
-	}
 
 	// If it's a simple level (INFO, DEBUG, etc.), convert to "all=<level>" format
 	// Otherwise, pass through for fine-grained control (e.g., "core=debug,providers=info")
@@ -684,7 +681,6 @@ func getOGXLogLevel(instance *apiv1beta1.OpenStackLightspeed) string {
 		return fmt.Sprintf("all=%s", strings.ToLower(logLevel))
 	}
 
-	// Pass through as-is for fine-grained control
 	return logLevel
 }
 
