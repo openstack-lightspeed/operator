@@ -70,8 +70,39 @@ spec:
   template:
     spec:
       containers:
-        - name: llama-stack
-        - name: lightspeed-service-api
+      - name: llama-stack
+        env:
+        - name: OPENSTACK_LIGHTSPEED_PROVIDER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: apitoken
+              name: openstack-lightspeed-apitoken-update
+        - name: VLLM_URL
+          value: http://mock-llm-api-server-pod-UPDATE:8000/v1
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: lightspeed-postgres-secret
+        - name: LLAMA_STACK_LOGGING
+          value: core=debug,providers=info
+        - name: OGX_LOGGING
+          value: core=debug,providers=info
+        - name: VECTOR_DB_DATA_PATH
+          value: /vector-db-discovered-values
+        - name: REQUESTS_CA_BUNDLE
+          value: /etc/certs/additional-ca/cert.crt
+        - name: SSL_CERT_FILE
+          value: /etc/certs/additional-ca/cert.crt
+      - name: lightspeed-service-api
+        env:
+        - name: LIGHTSPEED_STACK_LOG_LEVEL
+          value: ERROR
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: lightspeed-postgres-secret
 status:
   replicas: 1
   readyReplicas: 1
@@ -157,6 +188,9 @@ spec:
   transcriptsDisabled: true
   enableOCPRAG: false
   ocpVersionOverride: "4.16"
+  logging:
+    ogxLogLevel: "core=debug,providers=info"
+    lightspeedStackLogLevel: ERROR
 status:
   conditions:
     - type: Ready

@@ -35,3 +35,7 @@ spec:
   # We can set it to `true` once the OCP contant is present in the image.
   enableOCPRAG: false
   ocpVersionOverride: "4.16"
+  logging:
+    ogxLogLevel: "core=debug,providers=info"
+    lightspeedStackLogLevel: ERROR
+    dataverseExporterLogLevel: ERROR

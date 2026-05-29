@@ -107,6 +107,40 @@ spec:
               llmProjectID:
                 description: Project ID for LLM providers that require it (e.g., WatsonX)
                 type: string
+              logging:
+                description: Logging configuration for OpenStackLightspeed components
+                properties:
+                  dataverseExporterLogLevel:
+                    default: INFO
+                    description: 'Log level for the dataverse exporter sidecar container.
+                      Supports standard Python log levels: DEBUG, INFO, WARNING, ERROR,
+                      CRITICAL.'
+                    enum:
+                    - DEBUG
+                    - INFO
+                    - WARNING
+                    - ERROR
+                    - CRITICAL
+                    type: string
+                  lightspeedStackLogLevel:
+                    default: INFO
+                    description: 'Log level for the lightspeed-service-api container.
+                      Supports standard Python log levels: DEBUG, INFO, WARNING, ERROR,
+                      CRITICAL.'
+                    enum:
+                    - DEBUG
+                    - INFO
+                    - WARNING
+                    - ERROR
+                    - CRITICAL
+                    type: string
+                  ogxLogLevel:
+                    description: Log level configuration for the OGX/llama-stack container.
+                      Supports standard levels (INFO, DEBUG) or fine-grained control
+                      using format "component=level,component=level" (e.g., "core=debug,providers=info").
+                      Defaults to "all=info" if empty.
+                    type: string
+                type: object
               maxTokensForResponse:
                 description: MaxTokensForResponse defines the maximum number of tokens
                   to be used for the response generation

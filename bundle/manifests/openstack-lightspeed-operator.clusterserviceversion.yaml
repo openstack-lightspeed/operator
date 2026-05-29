@@ -25,7 +25,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: AI/Machine Learning
-    createdAt: "2026-05-27T13:26:52Z"
+    createdAt: "2026-05-28T16:28:23Z"
     description: AI-powered virtual assistant for Red Hat OpenStack Services on OpenShift
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -128,6 +128,19 @@ spec:
       - description: Type of the provider serving the LLM
         displayName: Provider Type
         path: llmEndpointType
+      - description: 'Log level for the dataverse exporter sidecar container. Supports
+          standard Python log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL.'
+        displayName: Dataverse Exporter Log Level
+        path: logging.dataverseExporterLogLevel
+      - description: 'Log level for the lightspeed-service-api container. Supports
+          standard Python log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL.'
+        displayName: Lightspeed Stack Log Level
+        path: logging.lightspeedStackLogLevel
+      - description: Log level configuration for the OGX/llama-stack container. Supports
+          standard levels (INFO, DEBUG) or fine-grained control using format "component=level,component=level"
+          (e.g., "core=debug,providers=info"). Defaults to "all=info" if empty.
+        displayName: OGX Log Level
+        path: logging.ogxLogLevel
       - description: Name of the model to use at the API endpoint provided in LLMEndpoint
         displayName: Model Name
         path: modelName

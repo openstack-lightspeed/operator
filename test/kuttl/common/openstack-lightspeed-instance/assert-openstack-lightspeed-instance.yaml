@@ -149,9 +149,47 @@ spec:
   template:
     spec:
       containers:
-        - name: llama-stack
-        - name: lightspeed-service-api
-        - name: lightspeed-to-dataverse-exporter
+      - name: llama-stack
+        env:
+        - name: OPENSTACK_LIGHTSPEED_PROVIDER_API_KEY
+          valueFrom:
+            secretKeyRef:
+              key: apitoken
+              name: openstack-lightspeed-apitoken
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: lightspeed-postgres-secret
+        - name: LLAMA_STACK_LOGGING
+          value: all=debug
+        - name: OGX_LOGGING
+          value: all=debug
+        - name: VECTOR_DB_DATA_PATH
+          value: /vector-db-discovered-values
+        - name: REQUESTS_CA_BUNDLE
+          value: /etc/certs/additional-ca/cert.crt
+        - name: SSL_CERT_FILE
+          value: /etc/certs/additional-ca/cert.crt
+      - name: lightspeed-service-api
+        env:
+        - name: LIGHTSPEED_STACK_LOG_LEVEL
+          value: WARNING
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              key: password
+              name: lightspeed-postgres-secret
+      - name: lightspeed-to-dataverse-exporter
+        args:
+        - --mode
+        - openshift
+        - --config
+        - /etc/config/config.yaml
+        - --log-level
+        - DEBUG
+        - --data-dir
+        - /tmp/data
 status:
   replicas: 1
   readyReplicas: 1
@@ -241,6 +279,9 @@ spec:
   llmProjectID: test-project-id
   llmDeploymentName: test-deployment-name
   llmAPIVersion: v1
+  logging:
+    ogxLogLevel: DEBUG
+    lightspeedStackLogLevel: WARNING
 status:
   conditions:
     - type: Ready

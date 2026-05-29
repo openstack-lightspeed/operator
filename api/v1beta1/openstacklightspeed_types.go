@@ -86,6 +86,28 @@ type OpenStackLightspeedSpec struct {
 	Database *DatabaseSpec `json:"database,omitempty"`
 }
 
+// LoggingConfig defines logging configuration for OpenStackLightspeed components
+type LoggingConfig struct {
+	// +kubebuilder:validation:Optional
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OGX Log Level"
+	// Log level configuration for the OGX/llama-stack container. Supports standard levels (INFO, DEBUG) or fine-grained control using format "component=level,component=level" (e.g., "core=debug,providers=info"). Defaults to "all=info" if empty.
+	OGXLogLevel string `json:"ogxLogLevel,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
+	// +kubebuilder:default="INFO"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Lightspeed Stack Log Level"
+	// Log level for the lightspeed-service-api container. Supports standard Python log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+	LightspeedStackLogLevel string `json:"lightspeedStackLogLevel,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:validation:Enum=DEBUG;INFO;WARNING;ERROR;CRITICAL
+	// +kubebuilder:default="INFO"
+	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="Dataverse Exporter Log Level"
+	// Log level for the dataverse exporter sidecar container. Supports standard Python log levels: DEBUG, INFO, WARNING, ERROR, CRITICAL.
+	DataverseExporterLogLevel string `json:"dataverseExporterLogLevel,omitempty"`
+}
+
 // OpenStackLightspeedCore defines the desired state of OpenStackLightspeed
 type OpenStackLightspeedCore struct {
 	// +kubebuilder:validation:Required
@@ -138,6 +160,10 @@ type OpenStackLightspeedCore struct {
 	// +kubebuilder:validation:Optional
 	// Disable conversation transcripts collection
 	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// Logging configuration for OpenStackLightspeed components
+	Logging LoggingConfig `json:"logging,omitempty"`
 }
 
 // OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed
