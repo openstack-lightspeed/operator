@@ -14,3 +14,7 @@ spec:
   llmDeploymentName: test-deployment-name
   llmAPIVersion: v1
   enableOCPRAG: false
+  logging:
+    ogxLogLevel: DEBUG
+    lightspeedStackLogLevel: WARNING
+    dataverseExporterLogLevel: DEBUG

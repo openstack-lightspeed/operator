@@ -20,7 +20,9 @@ import (
 	"context"
 	"fmt"
 	"path"
+	"slices"
 	"strconv"
+	"strings"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
@@ -59,7 +61,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	if err != nil {
 		return corev1.PodTemplateSpec{}, fmt.Errorf("failed to build llama-stack env vars: %w", err)
 	}
-	lsEnvVars := buildLightspeedStackEnvVars()
+	lsEnvVars := buildLightspeedStackEnvVars(instance)
 
 	// Llama Stack container mounts: its config + shared + cache + vector_store_db data
 	llamaStackMounts := []corev1.VolumeMount{}
@@ -131,7 +133,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 			Args: []string{
 				"--mode", "openshift",
 				"--config", path.Join(ExporterConfigMountPath, ExporterConfigFilename),
-				"--log-level", "INFO",
+				"--log-level", instance.Spec.Logging.DataverseExporterLogLevel,
 				"--data-dir", LCoreUserDataMountPath,
 			},
 			VolumeMounts: []corev1.VolumeMount{
@@ -586,10 +588,15 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 	// Postgres password for ${env.POSTGRES_PASSWORD} substitution in llama-stack config
 	envVars = append(envVars, buildPostgresPasswordEnvVar())
 
-	// Logging configuration
+	// Logging configuration - set both for compatibility with llama-stack and OGX
+	ogxLogLevel := getOGXLogLevel(instance)
 	envVars = append(envVars, corev1.EnvVar{
 		Name:  "LLAMA_STACK_LOGGING",
-		Value: "all=info",
+		Value: ogxLogLevel,
+	})
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "OGX_LOGGING",
+		Value: ogxLogLevel,
 	})
 
 	envVars = append(envVars, corev1.EnvVar{
@@ -619,11 +626,11 @@ func buildPostgresPasswordEnvVar() corev1.EnvVar {
 }
 
 // buildLightspeedStackEnvVars builds environment variables for the lightspeed-stack container.
-func buildLightspeedStackEnvVars() []corev1.EnvVar {
+func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{
-			Name:  "LOG_LEVEL",
-			Value: "INFO",
+			Name:  "LIGHTSPEED_STACK_LOG_LEVEL",
+			Value: instance.Spec.Logging.LightspeedStackLogLevel,
 		},
 		buildPostgresPasswordEnvVar(),
 	}
@@ -657,6 +664,28 @@ func buildLightspeedStackReadinessProbe() *corev1.Probe {
 		TimeoutSeconds:      5,
 		FailureThreshold:    3,
 	}
+}
+
+// getOGXLogLevel returns the log level for OGX/llama-stack container.
+// Supports either standard levels (INFO, DEBUG, WARNING, ERROR, CRITICAL) or fine-grained control.
+// Examples: "INFO" -> "all=info", "DEBUG" -> "all=debug", "core=debug,providers=info" -> "core=debug,providers=info"
+// Defaults to "all=info" if not specified.
+func getOGXLogLevel(instance *apiv1beta1.OpenStackLightspeed) string {
+	logLevel := instance.Spec.Logging.OGXLogLevel
+	if logLevel == "" {
+		return "all=info"
+	}
+
+	// If it's a simple level (INFO, DEBUG, etc.), convert to "all=<level>" format
+	// Otherwise, pass through for fine-grained control (e.g., "core=debug,providers=info")
+	upperLogLevel := strings.ToUpper(logLevel)
+	allowedLogLevels := []string{"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}
+	if slices.Contains(allowedLogLevels, upperLogLevel) {
+		return fmt.Sprintf("all=%s", strings.ToLower(logLevel))
+	}
+
+	// Pass through as-is for fine-grained control
+	return logLevel
 }
 
 // buildConfigMapAnnotations builds annotations with configmap resource versions
