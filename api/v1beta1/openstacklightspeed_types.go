@@ -89,8 +89,9 @@ type OpenStackLightspeedSpec struct {
 // LoggingConfig defines logging configuration for OpenStackLightspeed components
 type LoggingConfig struct {
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default="all=info"
 	// +operator-sdk:csv:customresourcedefinitions:type=spec,displayName="OGX Log Level"
-	// Log level configuration for the OGX/llama-stack container. Supports standard levels (INFO, DEBUG) or fine-grained control using format "component=level,component=level" (e.g., "core=debug,providers=info"). Defaults to "all=info" if empty.
+	// Log level configuration for the OGX/llama-stack container. Supports standard levels (INFO, DEBUG) or fine-grained control using format "component=level,component=level" (e.g., "core=debug,providers=info").
 	OGXLogLevel string `json:"ogxLogLevel,omitempty"`
 
 	// +kubebuilder:validation:Optional
@@ -162,8 +163,9 @@ type OpenStackLightspeedCore struct {
 	TranscriptsDisabled bool `json:"transcriptsDisabled,omitempty"`
 
 	// +kubebuilder:validation:Optional
+	// +kubebuilder:default={}
 	// Logging configuration for OpenStackLightspeed components
-	Logging LoggingConfig `json:"logging,omitempty"`
+	Logging LoggingConfig `json:"logging"`
 }
 
 // OpenStackLightspeedStatus defines the observed state of OpenStackLightspeed
