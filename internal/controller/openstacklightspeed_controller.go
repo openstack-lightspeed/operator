@@ -295,7 +295,34 @@ func (r *OpenStackLightspeedReconciler) SetupWithManager(mgr ctrl.Manager) error
 			handler.EnqueueRequestsFromMapFunc(r.NotifyAllOpenStackLightspeeds),
 			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
 		).
+		Watches(
+			&corev1.ConfigMap{},
+			handler.EnqueueRequestsFromMapFunc(r.NotifyOpenStackLightspeedsByCAConfigMap),
+			builder.WithPredicates(predicate.ResourceVersionChangedPredicate{}),
+		).
 		Complete(r)
+}
+
+// NotifyOpenStackLightspeedsByCAConfigMap watches ConfigMaps and triggers reconciliation when
+// a user-provided CA ConfigMap (referenced by an OpenStackLightspeed CR) changes.
+func (r *OpenStackLightspeedReconciler) NotifyOpenStackLightspeedsByCAConfigMap(ctx context.Context, obj client.Object) []ctrl.Request {
+	var lightspeedList apiv1beta1.OpenStackLightspeedList
+	if err := r.List(ctx, &lightspeedList, client.InNamespace(obj.GetNamespace())); err != nil {
+		return nil
+	}
+
+	var requests []ctrl.Request
+	for _, item := range lightspeedList.Items {
+		if item.Spec.TLSCACertBundle == obj.GetName() {
+			requests = append(requests, ctrl.Request{
+				NamespacedName: client.ObjectKey{
+					Namespace: item.GetNamespace(),
+					Name:      item.GetName(),
+				},
+			})
+		}
+	}
+	return requests
 }
 
 // NotifyAllOpenStackLightspeeds returns a list of reconcile requests for all OpenStackLightspeed objects.

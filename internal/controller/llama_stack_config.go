@@ -265,9 +265,6 @@ func buildLlamaStackStorage(_ *common_helper.Helper, instance *apiv1beta1.OpenSt
 			"password": "${env.POSTGRES_PASSWORD}",
 			// Note: Database name is HARDCODED to "llamastack" in llama-stack's postgres adapter
 			// Not configurable - llama-stack ignores image_name for database selection
-			"ssl_mode":     "require",
-			"ca_cert_path": "/etc/certs/postgres-ca/service-ca.crt",
-			"gss_encmode":  "disable",
 		},
 	}
 

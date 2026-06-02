@@ -48,7 +48,7 @@ func ReconcileLCoreResources(h *common_helper.Helper, ctx context.Context, insta
 		{Name: "LcoreConfigMap", Task: reconcileLcoreConfigMap},
 		{Name: "ExporterConfigMap", Task: reconcileExporterConfigMap},
 		{Name: "VectorDBScriptsConfigMap", Task: reconcileVectorDBScriptsConfigMap},
-		{Name: "OpenStackLightspeedAdditionalCAConfigMap", Task: reconcileOpenStackLightspeedAdditionalCAConfigMap},
+		{Name: "CABundle", Task: reconcileCABundleConfigMap},
 		{Name: "ProxyCAConfigMap", Task: reconcileProxyCAConfigMap},
 		{Name: "NetworkPolicy", Task: reconcileNetworkPolicy},
 	}
@@ -307,29 +307,6 @@ func reconcileVectorDBScriptsConfigMap(h *common_helper.Helper, ctx context.Cont
 	}
 
 	logger.Info("Vector DB Scripts ConfigMap reconciled", "name", cm.Name, "result", result)
-	return nil
-}
-
-// reconcileOpenStackLightspeedAdditionalCAConfigMap verifies that the additional CA config map
-// exists if one is specified in the configuration.
-func reconcileOpenStackLightspeedAdditionalCAConfigMap(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
-	logger := h.GetLogger()
-
-	if instance.Spec.TLSCACertBundle == "" {
-		logger.Info("no additional CA configmap configured, skipping")
-		return nil
-	}
-
-	existing := &corev1.ConfigMap{}
-	err := h.GetClient().Get(ctx, client.ObjectKey{
-		Name:      instance.Spec.TLSCACertBundle,
-		Namespace: h.GetBeforeObject().GetNamespace(),
-	}, existing)
-	if err != nil {
-		return fmt.Errorf("%w %q: %v", ErrGetAdditionalCACM, instance.Spec.TLSCACertBundle, err)
-	}
-
-	logger.Info("additional CA configmap found", "name", instance.Spec.TLSCACertBundle)
 	return nil
 }
 
