@@ -21,6 +21,7 @@ import (
 	"github.com/openstack-k8s-operators/lib-common/modules/common/util"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 )
 
 const (
@@ -45,9 +46,35 @@ const (
 	// ConsoleContainerImagePF5 is the fall-back console image for PatternFly 5 (OCP < 4.19)
 	ConsoleContainerImagePF5 = "registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9:1.0.12"
 
+	// OKPContainerImage is the fall-back container image for OKP (Offline Knowledge Portal)
+	OKPContainerImage = "registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
+
 	// MaxTokensForResponseDefault is the default maximum number of tokens that should be used for response
 	MaxTokensForResponseDefault = 2048
 )
+
+// DevSpec is the internal structure for the Dev field. Not exposed in the CRD.
+// May change at any time without backward compatibility.
+type DevSpec struct {
+	FeatureFlags        []string `json:"featureFlags,omitempty"`
+	OKPChunkFilterQuery string   `json:"okpChunkFilterQuery,omitempty"`
+}
+
+// OKPSpec defines configuration for the Offline Knowledge Portal (OKP).
+type OKPSpec struct {
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default=true
+	// Offline controls how source URLs are resolved.
+	// When true, uses parent_id (offline/Mimir-style).
+	// When false, uses reference_url (online).
+	Offline *bool `json:"offline,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// AccessKey is the name of the Secret containing the access key for the OKP server.
+	// The secret must contain a key named "access_key".
+	// An access key can be obtained from https://access.redhat.com/offline/access
+	AccessKey string `json:"accessKey,omitempty"`
+}
 
 // DatabaseSpec defines configuration for persistent PostgreSQL storage.
 type DatabaseSpec struct {
@@ -84,6 +111,16 @@ type OpenStackLightspeedSpec struct {
 	// When omitted, an emptyDir volume is used (data is lost on pod reschedule).
 	// When set, a PersistentVolumeClaim is created and mounted.
 	Database *DatabaseSpec `json:"database,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// OKP configures the Offline Knowledge Portal (OKP) RAG source.
+	OKP *OKPSpec `json:"okp,omitempty"`
+
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:pruning:PreserveUnknownFields
+	// Dev contains developer/experimental configuration.
+	// This section is not part of the stable API and may change at any time without backward compatibility.
+	Dev runtime.RawExtension `json:"dev,omitempty"`
 }
 
 // LoggingConfig defines logging configuration for OpenStackLightspeed components
@@ -242,6 +279,7 @@ type OpenStackLightspeedDefaults struct {
 	PostgresImageURL     string
 	ConsoleImageURL      string
 	ConsoleImagePF5URL   string
+	OKPImageURL          string
 	MaxTokensForResponse int
 }
 
@@ -263,6 +301,8 @@ func SetupDefaults() {
 			"RELATED_IMAGE_CONSOLE_IMAGE_URL_DEFAULT", ConsoleContainerImage),
 		ConsoleImagePF5URL: util.GetEnvVar(
 			"RELATED_IMAGE_CONSOLE_PF5_IMAGE_URL_DEFAULT", ConsoleContainerImagePF5),
+		OKPImageURL: util.GetEnvVar(
+			"RELATED_IMAGE_OKP_IMAGE_URL_DEFAULT", OKPContainerImage),
 		MaxTokensForResponse: MaxTokensForResponseDefault,
 	}
 

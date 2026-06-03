@@ -25,7 +25,7 @@ metadata:
       ]
     capabilities: Basic Install
     categories: AI/Machine Learning
-    createdAt: "2026-05-28T16:28:23Z"
+    createdAt: "2026-06-11T09:06:59Z"
     description: AI-powered virtual assistant for Red Hat OpenStack Services on OpenShift
     features.operators.openshift.io/cnf: "false"
     features.operators.openshift.io/cni: "false"
@@ -299,6 +299,8 @@ spec:
                   value: quay.io/lightspeed-core/lightspeed-to-dataverse-exporter:latest
                 - name: RELATED_IMAGE_POSTGRES_IMAGE_URL_DEFAULT
                   value: registry.redhat.io/rhel9/postgresql-16:latest
+                - name: RELATED_IMAGE_OKP_IMAGE_URL_DEFAULT
+                  value: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
                 image: quay.io/openstack-lightspeed/operator:latest
                 livenessProbe:
                   httpGet:
@@ -366,6 +368,7 @@ spec:
           - ""
           resources:
           - configmaps
+          - services
           verbs:
           - create
           - delete
@@ -378,7 +381,6 @@ spec:
           - ""
           resources:
           - persistentvolumeclaims
-          - services
           verbs:
           - create
           - get
@@ -415,6 +417,7 @@ spec:
           - deployments
           verbs:
           - create
+          - delete
           - get
           - list
           - patch
@@ -479,4 +482,6 @@ spec:
     name: exporter-image-url-default
   - image: registry.redhat.io/rhel9/postgresql-16:latest
     name: postgres-image-url-default
+  - image: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
+    name: okp-image-url-default
   version: 0.0.1

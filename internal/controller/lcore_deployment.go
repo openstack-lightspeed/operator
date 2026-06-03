@@ -541,6 +541,20 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 		Value: VectorDBVolumeMountPath,
 	})
 
+	if isOKPEnabled(instance) {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "RH_SERVER_OKP",
+			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
+		})
+		// FIXME(lucasagomes): Llama-Stack expects HF_HOME to be set when OKP is enabled because it uses the
+		// Hugging Face Hub client to fetch the embedding model for OKP. Ideally we would include the model it
+		// downloads in the container image to avoid this.
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "HF_HOME",
+			Value: "/tmp/huggingface",
+		})
+	}
+
 	return envVars, nil
 }
 
@@ -561,13 +575,20 @@ func buildPostgresPasswordEnvVar() corev1.EnvVar {
 
 // buildLightspeedStackEnvVars builds environment variables for the lightspeed-stack container.
 func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []corev1.EnvVar {
-	return []corev1.EnvVar{
+	envVars := []corev1.EnvVar{
 		{
 			Name:  "LIGHTSPEED_STACK_LOG_LEVEL",
 			Value: instance.Spec.Logging.LightspeedStackLogLevel,
 		},
 		buildPostgresPasswordEnvVar(),
 	}
+	if isOKPEnabled(instance) {
+		envVars = append(envVars, corev1.EnvVar{
+			Name:  "RH_SERVER_OKP",
+			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
+		})
+	}
+	return envVars
 }
 
 // buildLightspeedStackLivenessProbe returns the liveness probe for the lightspeed-stack container.

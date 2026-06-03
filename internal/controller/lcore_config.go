@@ -202,9 +202,31 @@ ingress_connection_timeout: 30
 	}
 }
 
+func buildOKPConfig(instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+	offline := true
+	if instance.Spec.OKP != nil && instance.Spec.OKP.Offline != nil {
+		offline = *instance.Spec.OKP.Offline
+	}
+
+	okpConfig := map[string]interface{}{
+		"rhokp_url": "${env.RH_SERVER_OKP}",
+		"offline":   offline,
+	}
+	okpConfig["chunk_filter_query"] = getOKPChunkFilterQuery(instance)
+	return okpConfig
+}
+
 // buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML.
 // NOTE: MCP servers, quota handlers, and tools approval features are disabled for OpenStack Lightspeed.
 func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) (string, error) {
+	ragInline := []interface{}{}
+	if isOKPEnabled(instance) {
+		ragInline = append(ragInline, "okp")
+	}
+	ragConfig := map[string]interface{}{
+		"inline": ragInline,
+	}
+
 	// Build the complete config as a map
 	config := map[string]interface{}{
 		"name":                 "Lightspeed Core Service (LCS)",
@@ -217,9 +239,11 @@ func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStac
 		"customization":        buildLCoreCustomizationConfig(),
 		"conversation_cache":   buildLCoreConversationCacheConfig(h, instance),
 		"byok_rag":             []interface{}{},
-		"rag": map[string]interface{}{
-			"inline": []interface{}{},
-		},
+		"rag":                  ragConfig,
+	}
+
+	if isOKPEnabled(instance) {
+		config["okp"] = buildOKPConfig(instance)
 	}
 
 	// Convert to YAML

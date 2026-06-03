@@ -6,4 +6,5 @@ export RELATED_IMAGE_POSTGRES_IMAGE_URL_DEFAULT="registry.redhat.io/rhel9/postgr
 # the automated pipeline for building OGX-compatible vector database images
 # is ready.
 export RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT="quay.io/openstack-lightspeed/rag-content:alpha-ogx-os-docs-2025.2"
+export RELATED_IMAGE_OKP_IMAGE_URL_DEFAULT="registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest"
 export WATCH_NAMESPACE="openstack-lightspeed"
