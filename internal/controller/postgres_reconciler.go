@@ -96,11 +96,9 @@ func reconcilePostgresBootstrapSecret(h *common_helper.Helper, ctx context.Conte
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), secret, func() error {
-		// Set bootstrap script data
-		secret.StringData = map[string]string{
-			PostgresExtensionScript: PostgresBootStrapScriptContent,
+		secret.Data = map[string][]byte{
+			PostgresExtensionScript: []byte(PostgresBootStrapScriptContent),
 		}
-		// Set owner reference
 		return controllerutil.SetControllerReference(h.GetBeforeObject(), secret, h.GetScheme())
 	})
 

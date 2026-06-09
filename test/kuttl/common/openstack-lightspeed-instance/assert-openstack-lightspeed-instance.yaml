@@ -256,6 +256,21 @@ spec:
               mountPath: /etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem
               subPath: tls-ca-bundle.pem
               readOnly: true
+        - name: rhos-mcp
+          volumeMounts:
+            - name: openstack-config-secret
+              mountPath: /app/secure.yaml
+              subPath: secure.yaml
+            - name: openstack-config
+              mountPath: /app/clouds.yaml
+              subPath: clouds.yaml
+            - name: combined-ca-bundle
+              mountPath: /app/tls-ca-bundle.pem
+              subPath: tls-ca-bundle.pem
+              readOnly: true
+            - name: mcp-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
       volumes:
         - name: ogx-config
           configMap:
@@ -281,6 +296,33 @@ spec:
         - name: tls-certs
           secret:
             secretName: lightspeed-tls
+        - name: openstack-config-secret
+          secret:
+            secretName: openstack-config-secret
+            optional: true
+            items:
+              - key: secure.yaml
+                path: secure.yaml
+        - name: openstack-config
+          configMap:
+            name: openstack-config
+            optional: true
+            items:
+              - key: clouds.yaml
+                path: clouds.yaml
+        - name: combined-ca-bundle
+          secret:
+            secretName: combined-ca-bundle
+            optional: true
+            items:
+              - key: tls-ca-bundle.pem
+                path: tls-ca-bundle.pem
+        - name: mcp-config
+          configMap:
+            name: mcp-config
+            items:
+              - key: config.yaml
+                path: config.yaml
 status:
   replicas: 1
   readyReplicas: 1
@@ -298,6 +340,14 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: vector-db-scripts
+  namespace: openstack-lightspeed
+
+# MCP server resources
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-config
   namespace: openstack-lightspeed
 
 # Console Plugin resources
@@ -399,6 +449,8 @@ status:
       status: "True"
       reason: Ready
       message: OCP RAG is disabled
+    - type: OpenStackLightspeedMCPServerReady
+      status: "True"
     - type: OpenStackLightspeedReady
       status: "True"
       reason: Ready

@@ -105,6 +105,21 @@ spec:
             - DEBUG
             - --data-dir
             - /tmp/data
+        - name: rhos-mcp
+          volumeMounts:
+            - name: openstack-config-secret
+              mountPath: /app/secure.yaml
+              subPath: secure.yaml
+            - name: openstack-config
+              mountPath: /app/clouds.yaml
+              subPath: clouds.yaml
+            - name: combined-ca-bundle
+              mountPath: /app/tls-ca-bundle.pem
+              subPath: tls-ca-bundle.pem
+              readOnly: true
+            - name: mcp-config
+              mountPath: /app/config.yaml
+              subPath: config.yaml
 status:
   replicas: 1
   readyReplicas: 1
@@ -127,6 +142,8 @@ status:
       status: "True"
       reason: Ready
       message: OCP RAG is disabled
+    - type: OpenStackLightspeedMCPServerReady
+      status: "True"
     - type: OpenStackLightspeedReady
       status: "True"
       reason: Ready

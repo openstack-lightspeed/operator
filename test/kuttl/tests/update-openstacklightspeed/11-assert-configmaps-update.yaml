@@ -18,11 +18,46 @@ metadata:
 
 # Verify CA bundle ConfigMap still exists after update
 ---
+# Verify CA bundle ConfigMap still exists after update
 apiVersion: v1
 kind: ConfigMap
 metadata:
   name: openstack-lightspeed-ca-bundle
   namespace: openstack-lightspeed
+
+# Verify MCP config ConfigMap still exists with correct content after update
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mcp-config
+  namespace: openstack-lightspeed
+data:
+  config.yaml: |
+    ---
+    ip: 127.0.0.1
+    port: 8080
+    debug: false
+    workers: 1
+    processes_pool_size: 10
+
+    openstack:
+      enabled: false
+      allow_write: false
+      ca_cert: ./tls-ca-bundle.pem
+      insecure: false
+
+    openshift:
+      enabled: true
+      allow_write: false
+      insecure: false
+
+    mcp_transport_security:
+      enable_dns_rebinding_protection: true
+      allowed_hosts:
+        - "127.0.0.1:*"
+        - "localhost:*"
+      allowed_origins: []
 
 # Verify all operator-managed resources still exist after update
 ---
