@@ -159,6 +159,13 @@ spec:
         - name: vector-database-config-build
       containers:
         - name: llama-stack
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 8Gi
           env:
             - name: OPENSTACK_LIGHTSPEED_PROVIDER_API_KEY
               valueFrom:
@@ -186,6 +193,13 @@ spec:
             - name: llama-cache
               mountPath: /tmp/llama-stack
         - name: lightspeed-service-api
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
           env:
             - name: LIGHTSPEED_STACK_LOG_LEVEL
               value: WARNING
@@ -309,9 +323,25 @@ spec:
             readOnlyRootFilesystem: true
             capabilities:
               drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
           volumeMounts:
             - name: locales-rewrite
               mountPath: /locales-rewrite
+      containers:
+        - name: lightspeed-console-plugin
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
 ---
 apiVersion: v1
 kind: Service

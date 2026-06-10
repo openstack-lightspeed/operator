@@ -81,7 +81,16 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 			InitialDelaySeconds: 5,
 			PeriodSeconds:       10,
 		},
-		Resources:       getResourcesOrDefault(nil, corev1.ResourceRequirements{}),
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("500m"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("2"),
+				corev1.ResourceMemory: resource.MustParse("8Gi"),
+			},
+		},
 		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
 
@@ -108,15 +117,24 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	}
 
 	lightspeedStackContainer := corev1.Container{
-		Name:            "lightspeed-service-api",
-		Image:           apiv1beta1.OpenStackLightspeedDefaultValues.LCoreImageURL,
-		Args:            []string{"-c", VectorDBVolumeLightspeedStackConfigPath},
-		Ports:           []corev1.ContainerPort{{Name: "https", ContainerPort: OpenStackLightspeedAppServerContainerPort}},
-		VolumeMounts:    lightspeedStackMounts,
-		Env:             lsEnvVars,
-		LivenessProbe:   buildLightspeedStackLivenessProbe(),
-		ReadinessProbe:  buildLightspeedStackReadinessProbe(),
-		Resources:       getResourcesOrDefault(nil, corev1.ResourceRequirements{}),
+		Name:           "lightspeed-service-api",
+		Image:          apiv1beta1.OpenStackLightspeedDefaultValues.LCoreImageURL,
+		Args:           []string{"-c", VectorDBVolumeLightspeedStackConfigPath},
+		Ports:          []corev1.ContainerPort{{Name: "https", ContainerPort: OpenStackLightspeedAppServerContainerPort}},
+		VolumeMounts:   lightspeedStackMounts,
+		Env:            lsEnvVars,
+		LivenessProbe:  buildLightspeedStackLivenessProbe(),
+		ReadinessProbe: buildLightspeedStackReadinessProbe(),
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("250m"),
+				corev1.ResourceMemory: resource.MustParse("512Mi"),
+			},
+			Limits: corev1.ResourceList{
+				corev1.ResourceCPU:    resource.MustParse("1"),
+				corev1.ResourceMemory: resource.MustParse("2Gi"),
+			},
+		},
 		ImagePullPolicy: corev1.PullIfNotPresent,
 	}
 	containers := []corev1.Container{llamaStackContainer, lightspeedStackContainer}
