@@ -248,15 +248,21 @@ func buildInitContainers(
 		},
 	})
 
+	configBuildCmd := []string{
+		"python3", VectorDBScriptsMountPath + "/" + VectorDBBuildScriptKey,
+		"--vector-db-path", VectorDBVolumeMountPath,
+		"--ogx-config-path", OGXConfigInitContainerMountPath,
+		"--lightspeed-stack-path", LightspeedStackInitContainerMountPath,
+	}
+	devConfig, _ := parseDevConfig(instance)
+	if devConfig.OKPRagOnly {
+		configBuildCmd = append(configBuildCmd, "--okp-rag-only")
+	}
+
 	containers = append(containers, corev1.Container{
-		Name:  "vector-database-config-build",
-		Image: apiv1beta1.OpenStackLightspeedDefaultValues.LCoreImageURL,
-		Command: []string{
-			"python3", VectorDBScriptsMountPath + "/" + VectorDBBuildScriptKey,
-			"--vector-db-path", VectorDBVolumeMountPath,
-			"--ogx-config-path", OGXConfigInitContainerMountPath,
-			"--lightspeed-stack-path", LightspeedStackInitContainerMountPath,
-		},
+		Name:            "vector-database-config-build",
+		Image:           apiv1beta1.OpenStackLightspeedDefaultValues.LCoreImageURL,
+		Command:         configBuildCmd,
 		SecurityContext: securityContext,
 		Resources:       resourceRequirements,
 		VolumeMounts: []corev1.VolumeMount{
