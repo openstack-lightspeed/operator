@@ -149,6 +149,7 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 							corev1.ResourceMemory: resource.MustParse("300Mi"),
 						},
 						Limits: corev1.ResourceList{
+							corev1.ResourceCPU:    resource.MustParse("500m"),
 							corev1.ResourceMemory: resource.MustParse("2Gi"),
 						},
 					},

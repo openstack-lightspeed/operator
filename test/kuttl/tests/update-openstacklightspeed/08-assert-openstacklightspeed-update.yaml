@@ -23,6 +23,18 @@ kind: Deployment
 metadata:
   name: lightspeed-postgres-server
   namespace: openstack-lightspeed
+spec:
+  template:
+    spec:
+      containers:
+        - name: lightspeed-postgres-server
+          resources:
+            requests:
+              cpu: 30m
+              memory: 300Mi
+            limits:
+              cpu: 500m
+              memory: 2Gi
 status:
   replicas: 1
   readyReplicas: 1
