@@ -52,6 +52,11 @@ const (
 
 // DevSpec is the internal structure for the Dev field. Not exposed in the CRD.
 // May change at any time without backward compatibility.
+//
+// Supported fields:
+//   - featureFlags: list of experimental feature flags to enable (e.g. ["okp"])
+//   - okpChunkFilterQuery: Solr filter query for OKP searches (default: "product:(*openstack* OR *openshift*)")
+//   - okpRagOnly: when true, only OKP is used as a RAG source (default: false)
 type DevSpec struct {
 	FeatureFlags        []string `json:"featureFlags,omitempty"`
 	OKPChunkFilterQuery string   `json:"okpChunkFilterQuery,omitempty"`
