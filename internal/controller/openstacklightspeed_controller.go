@@ -82,10 +82,12 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=operators.coreos.com,resources=clusterserviceversions,namespace=openstack-lightspeed,verbs=update;patch;delete
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,resourceNames=pull-secret,verbs=get
-// +kubebuilder:rbac:groups="",resources=secrets,verbs=get
+// +kubebuilder:rbac:groups="",resources=secrets,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups=apiextensions.k8s.io,resources=customresourcedefinitions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=configmaps,verbs=get;list;watch
 // +kubebuilder:rbac:groups=core.openstack.org,resources=openstackcontrolplanes,verbs=get;list;watch
+// +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapplicationcredentials,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=keystone.openstack.org,resources=keystoneapplicationcredentials/status,verbs=get
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update
 // +kubebuilder:rbac:groups=apps,resources=deployments,namespace=openstack-lightspeed,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update;delete
@@ -188,6 +190,9 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 	_ = r.resolveOCPVersion(ctx, helper, instance)
 
 	if !instance.DeletionTimestamp.IsZero() {
+		if err := r.reconcileDeleteOpenStackResources(ctx, helper, instance); err != nil {
+			return ctrl.Result{}, err
+		}
 		if err := r.reconcileDelete(ctx, helper, instance); err != nil {
 			return ctrl.Result{}, err
 		}
@@ -473,6 +478,14 @@ func (r *OpenStackLightspeedReconciler) WatchDynamicCRD(
 ) error {
 	for gvk, seen := range r.DynamicWatchCRD {
 		if seen.Load() {
+			// Re-verify CRD still exists — it may have been uninstalled.
+			crdAvailable, err := IsCRDEstablished(ctx, helper, gvk)
+			if err != nil {
+				return err
+			}
+			if !crdAvailable {
+				seen.Store(false)
+			}
 			continue
 		}
 

@@ -240,6 +240,15 @@ func OpenStackControlPlaneGVK() schema.GroupVersionKind {
 	}
 }
 
+// KeystoneApplicationCredentialGVK returns the GroupVersionKind for KeystoneApplicationCredential.
+func KeystoneApplicationCredentialGVK() schema.GroupVersionKind {
+	return schema.GroupVersionKind{
+		Group:   KeystoneApplicationCredentialGroup,
+		Version: KeystoneApplicationCredentialVersion,
+		Kind:    KeystoneApplicationCredentialKind,
+	}
+}
+
 // IsDynamicCRDReadyByGVK checks whether the given GVK is being watched and has
 // been observed as ready by the dynamic watch.
 func IsDynamicCRDReadyByGVK(

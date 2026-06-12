@@ -178,7 +178,13 @@ spec:
           resources:
           - secrets
           verbs:
+          - create
+          - delete
           - get
+          - list
+          - patch
+          - update
+          - watch
         - apiGroups:
           - ""
           resourceNames:
@@ -223,6 +229,24 @@ spec:
           - get
           - list
           - watch
+        - apiGroups:
+          - keystone.openstack.org
+          resources:
+          - keystoneapplicationcredentials
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - keystone.openstack.org
+          resources:
+          - keystoneapplicationcredentials/status
+          verbs:
+          - get
         - apiGroups:
           - lightspeed.openstack.org
           resources:

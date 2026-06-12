@@ -204,6 +204,11 @@ spec:
                   ActiveOCPRAGVersion contains the OCP version being used for RAG configuration
                   Will be one of: "4.16", "4.18", "latest", or empty if OCP RAG is disabled
                 type: string
+              applicationCredentialSecret:
+                description: |-
+                  ApplicationCredentialSecret is the name of the current AC secret in the
+                  OpenStack namespace. Tracked for rotation detection.
+                type: string
               conditions:
                 description: Conditions
                 items:

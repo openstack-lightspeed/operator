@@ -1,0 +1,9 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      #!/bin/bash
+      set -euo pipefail
+      ../../common/mock-openstack/simulate-keystone-operator.sh
+    timeout: 180

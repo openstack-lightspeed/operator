@@ -114,6 +114,19 @@ const (
 	OpenStackControlPlaneVersion = "v1beta1"
 	OpenStackControlPlaneKind    = "OpenStackControlPlane"
 
+	// Keystone Application Credential
+	KeystoneApplicationCredentialGroup   = "keystone.openstack.org"
+	KeystoneApplicationCredentialVersion = "v1beta1"
+	KeystoneApplicationCredentialKind    = "KeystoneApplicationCredential"
+
+	// Lightspeed Service User
+	LightspeedServiceUserName    = "lightspeed"
+	LightspeedServiceUserDomain  = "default"
+	LightspeedPasswordSecretName = "lightspeed-password"
+	LightspeedPasswordSecretKey  = "password"
+	LightspeedACCRName           = "lightspeed"
+	LightspeedACFinalizerName    = "openstack.org/lightspeed-ac-consumer"
+
 	// Azure
 	AzureOpenAIType = "azure_openai"
 

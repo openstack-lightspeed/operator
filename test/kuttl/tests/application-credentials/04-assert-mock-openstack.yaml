@@ -1,0 +1,15 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 120
+commands:
+  - script: |
+      #!/bin/bash
+      set -euo pipefail
+      oc wait --for=condition=Established \
+        crd/openstackcontrolplanes.core.openstack.org \
+        crd/keystoneapplicationcredentials.keystone.openstack.org \
+        --timeout=60s
+      oc get namespace openstack
+      oc wait --for=condition=Ready pod/mock-keystone-server -n openstack --timeout=60s
+      oc get openstackcontrolplane openstack-galera-network-isolation -n openstack
