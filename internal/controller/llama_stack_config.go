@@ -122,16 +122,20 @@ func buildLlamaStackInferenceProviders(_ *common_helper.Helper, _ context.Contex
 
 		// Map provider types to Llama Stack provider types
 		switch provider.Type {
-		case "openai", "rhoai_vllm", "rhelai_vllm":
+		case "openai", "gemini", "rhoai_vllm", "rhelai_vllm":
 			config := map[string]interface{}{}
 			// Determine the appropriate Llama Stack provider type:
 			//  - OpenAI uses remote::openai
 			//  - vLLM uses remote::vllm
 			var apiKeyField string
-			if provider.Type == "openai" {
+			switch provider.Type {
+			case "openai":
 				providerConfig["provider_type"] = "remote::openai"
 				apiKeyField = "api_key"
-			} else {
+			case "gemini":
+				providerConfig["provider_type"] = "remote::gemini"
+				apiKeyField = "api_key"
+			default:
 				providerConfig["provider_type"] = "remote::vllm"
 				apiKeyField = "api_token"
 			}
@@ -173,11 +177,11 @@ func buildLlamaStackInferenceProviders(_ *common_helper.Helper, _ context.Contex
 		case "watsonx", "bam":
 			// These providers are not supported by Llama Stack
 			// They are handled directly by lightspeed-stack (LCS), not Llama Stack
-			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, gemini, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
 
 		default:
 			// Unknown provider type
-			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, gemini, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
 		}
 
 		providers = append(providers, providerConfig)

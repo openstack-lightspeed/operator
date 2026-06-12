@@ -109,6 +109,7 @@ spec:
                 - rhoai_vllm
                 - rhelai_vllm
                 - fake_provider
+                - gemini
                 type: string
               llmProjectID:
                 description: Project ID for LLM providers that require it (e.g., WatsonX)
