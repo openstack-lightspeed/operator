@@ -203,26 +203,28 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		return ctrl.Result{}, nil
 	}
 
-	if instance.Spec.RAGImage == "" {
-		instance.Spec.RAGImage = apiv1beta1.OpenStackLightspeedDefaultValues.RAGImageURL
+	devConfig, devErr := parseDevConfig(instance)
+	if devErr != nil {
+		Log.Error(devErr, "failed to parse dev config, ignoring dev overrides")
+	}
+
+	defaults := apiv1beta1.MergeDefaults(&instance.Spec.Images)
+	// Set the global so that deployment builders (which read it directly)
+	// see the merged values for this reconcile cycle.
+	apiv1beta1.OpenStackLightspeedDefaultValues = defaults
+	ctx = contextWithDevConfig(ctx, devConfig)
+
+	if instance.Spec.Images.RAGImageURL == "" {
+		instance.Spec.Images.RAGImageURL = defaults.RAGImageURL
 	}
 
 	if instance.Spec.MaxTokensForResponse == 0 {
-		instance.Spec.MaxTokensForResponse = apiv1beta1.OpenStackLightspeedDefaultValues.MaxTokensForResponse
-	}
-
-	// Log dev config parse errors so misconfigurations don't silently disable features.
-	if _, err := parseDevConfig(instance); err != nil {
-		Log.Error(err, "failed to parse dev config, ignoring")
+		instance.Spec.MaxTokensForResponse = defaults.MaxTokensForResponse
 	}
 
 	// Reconcile MCP server before LCore resources, because its result
 	// determines what goes into the lightspeed-stack config (mcp_servers section).
-	rhosMCPEnabled, err := isRHOSMCPEnabled(instance)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to parse dev config: %w", err)
-	}
-	if rhosMCPEnabled {
+	if isRHOSMCPEnabled(devConfig) {
 		openStackReady, mcpErr := r.ReconcileMCPServer(ctx, helper, instance)
 		if mcpErr != nil {
 			instance.Status.Conditions.Set(condition.FalseCondition(
@@ -335,11 +337,7 @@ func (r *OpenStackLightspeedReconciler) reconcileStatus(
 
 	// Mark MCP server condition based on readiness (only when RHOS MCP is enabled;
 	// when disabled the condition was already set in Reconcile).
-	rhosMCPEnabled, err := isRHOSMCPEnabled(instance)
-	if err != nil {
-		return ctrl.Result{}, fmt.Errorf("failed to parse dev config: %w", err)
-	}
-	if rhosMCPEnabled {
+	if isRHOSMCPEnabled(devConfigFromContext(ctx)) {
 		if instance.Status.OpenStackReady {
 			instance.Status.Conditions.MarkTrue(
 				apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,

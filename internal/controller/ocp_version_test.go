@@ -237,7 +237,7 @@ func TestBuildRAGConfigs(t *testing.T) {
 	t.Run("OCP RAG disabled (empty version)", func(t *testing.T) {
 		instance := &apiv1beta1.OpenStackLightspeed{
 			Spec: apiv1beta1.OpenStackLightspeedSpec{
-				RAGImage: testRAGImage,
+				Images: apiv1beta1.OpenStackLightspeedImages{RAGImageURL: testRAGImage},
 			},
 		}
 
@@ -270,7 +270,7 @@ func TestBuildRAGConfigs(t *testing.T) {
 	t.Run("OCP RAG enabled", func(t *testing.T) {
 		instance := &apiv1beta1.OpenStackLightspeed{
 			Spec: apiv1beta1.OpenStackLightspeedSpec{
-				RAGImage: testRAGImage,
+				Images: apiv1beta1.OpenStackLightspeedImages{RAGImageURL: testRAGImage},
 			},
 		}
 
@@ -334,7 +334,7 @@ func TestBuildRAGConfigs(t *testing.T) {
 	t.Run("OCP RAG with latest version", func(t *testing.T) {
 		instance := &apiv1beta1.OpenStackLightspeed{
 			Spec: apiv1beta1.OpenStackLightspeedSpec{
-				RAGImage: testRAGImage,
+				Images: apiv1beta1.OpenStackLightspeedImages{RAGImageURL: testRAGImage},
 			},
 		}
 

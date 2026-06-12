@@ -37,6 +37,8 @@ import (
 // buildLCorePodTemplateSpec builds the pod template spec for the LCore deployment.
 // This function is used by CreateOrPatch to generate the desired pod spec.
 func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) (corev1.PodTemplateSpec, error) {
+	devConfig := devConfigFromContext(ctx)
+
 	// Build shared volumes
 	volumes := []corev1.Volume{
 		buildOGXConfigVolume(VolumeDefaultMode),
@@ -58,7 +60,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	if err != nil {
 		return corev1.PodTemplateSpec{}, fmt.Errorf("failed to build llama-stack env vars: %w", err)
 	}
-	lsEnvVars := buildLightspeedStackEnvVars(instance)
+	lsEnvVars := buildLightspeedStackEnvVars(instance, devConfig)
 
 	// Llama Stack container mounts: its config + shared + cache + vector_store_db data
 	llamaStackMounts := []corev1.VolumeMount{}
@@ -182,11 +184,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	}
 
 	// MCP sidecar (only when rhos_mcps feature flag is enabled)
-	rhosMCPEnabled, err := isRHOSMCPEnabled(instance)
-	if err != nil {
-		return corev1.PodTemplateSpec{}, fmt.Errorf("failed to parse dev config: %w", err)
-	}
-	if rhosMCPEnabled {
+	if isRHOSMCPEnabled(devConfig) {
 		mcpMounts := []corev1.VolumeMount{}
 		addMCPVolumesAndMounts(&volumes, &mcpMounts)
 
@@ -271,7 +269,7 @@ func buildInitContainers(
 	var containers []corev1.Container
 	containers = append(containers, corev1.Container{
 		Name:  "vector-database-collect",
-		Image: instance.Spec.RAGImage,
+		Image: instance.Spec.Images.RAGImageURL,
 		Command: func() []string {
 			cmd := []string{
 				"sh", VectorDBScriptsMountPath + "/" + VectorDBCollectScriptKey,
@@ -279,7 +277,7 @@ func buildInitContainers(
 				"--enable-ocp-rag", strconv.FormatBool(instance.Spec.EnableOCPRAG),
 				"--ocp-version", ocp_version,
 			}
-			if isOKPEnabled(instance) {
+			if isOKPEnabled(devConfigFromContext(ctx)) {
 				cmd = append(cmd, "--enable-okp")
 			}
 			return cmd
@@ -305,8 +303,7 @@ func buildInitContainers(
 		"--ogx-config-path", OGXConfigInitContainerMountPath,
 		"--lightspeed-stack-path", LightspeedStackInitContainerMountPath,
 	}
-	devConfig, _ := parseDevConfig(instance)
-	if devConfig.OKPRagOnly {
+	if devConfigFromContext(ctx).OKPRagOnly {
 		configBuildCmd = append(configBuildCmd, "--disable-rag-entries")
 	}
 
@@ -663,7 +660,7 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 		Value: VectorDBVolumeMountPath,
 	})
 
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfigFromContext(ctx)) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "RH_SERVER_OKP",
 			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
@@ -689,7 +686,7 @@ func buildPostgresPasswordEnvVar() corev1.EnvVar {
 }
 
 // buildLightspeedStackEnvVars builds environment variables for the lightspeed-stack container.
-func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []corev1.EnvVar {
+func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed, devConfig apiv1beta1.DevSpec) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "LIGHTSPEED_STACK_LOG_LEVEL",
@@ -697,7 +694,7 @@ func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []cor
 		},
 		buildPostgresPasswordEnvVar(),
 	}
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfig) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "RH_SERVER_OKP",
 			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),

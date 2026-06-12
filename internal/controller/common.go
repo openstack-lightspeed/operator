@@ -165,27 +165,36 @@ func parseDevConfig(instance *apiv1beta1.OpenStackLightspeed) (apiv1beta1.DevSpe
 }
 
 // isOKPEnabled returns true if the "okp" feature flag is present in the dev config.
-func isOKPEnabled(instance *apiv1beta1.OpenStackLightspeed) bool {
-	config, _ := parseDevConfig(instance)
-	return slices.Contains(config.FeatureFlags, "okp")
+func isOKPEnabled(devConfig apiv1beta1.DevSpec) bool {
+	return slices.Contains(devConfig.FeatureFlags, "okp")
 }
 
 // isRHOSMCPEnabled returns true if the "rhos_mcps" feature flag is present in the dev config.
-func isRHOSMCPEnabled(instance *apiv1beta1.OpenStackLightspeed) (bool, error) {
-	config, err := parseDevConfig(instance)
-	if err != nil {
-		return false, err
-	}
-	return slices.Contains(config.FeatureFlags, "rhos_mcps"), nil
+func isRHOSMCPEnabled(devConfig apiv1beta1.DevSpec) bool {
+	return slices.Contains(devConfig.FeatureFlags, "rhos_mcps")
 }
 
 // getOKPChunkFilterQuery returns the chunk filter query from the dev config, or the default.
-func getOKPChunkFilterQuery(instance *apiv1beta1.OpenStackLightspeed) string {
-	config, _ := parseDevConfig(instance)
-	if config.OKPChunkFilterQuery != "" {
-		return config.OKPChunkFilterQuery
+func getOKPChunkFilterQuery(devConfig apiv1beta1.DevSpec) string {
+	if devConfig.OKPChunkFilterQuery != "" {
+		return devConfig.OKPChunkFilterQuery
 	}
 	return OKPDefaultChunkFilterQuery
+}
+
+// devConfigKey is the context key for storing the parsed DevSpec.
+type devConfigKey struct{}
+
+// contextWithDevConfig returns a new context carrying the given DevSpec.
+func contextWithDevConfig(ctx context.Context, devConfig apiv1beta1.DevSpec) context.Context {
+	return context.WithValue(ctx, devConfigKey{}, devConfig)
+}
+
+// devConfigFromContext extracts the DevSpec stored in ctx.
+// Returns a zero-value DevSpec if none was stored.
+func devConfigFromContext(ctx context.Context) apiv1beta1.DevSpec {
+	dc, _ := ctx.Value(devConfigKey{}).(apiv1beta1.DevSpec)
+	return dc
 }
 
 // getDeployment retrieves deployment from the cluster

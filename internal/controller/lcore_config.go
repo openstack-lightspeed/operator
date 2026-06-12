@@ -17,6 +17,7 @@ limitations under the License.
 package controller
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
 
@@ -207,7 +208,7 @@ ingress_connection_timeout: 30
 	}
 }
 
-func buildOKPConfig(instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+func buildOKPConfig(instance *apiv1beta1.OpenStackLightspeed, devConfig apiv1beta1.DevSpec) map[string]interface{} {
 	offline := true
 	if instance.Spec.OKP != nil && instance.Spec.OKP.Offline != nil {
 		offline = *instance.Spec.OKP.Offline
@@ -217,7 +218,7 @@ func buildOKPConfig(instance *apiv1beta1.OpenStackLightspeed) map[string]interfa
 		"rhokp_url": "${env.RH_SERVER_OKP}",
 		"offline":   offline,
 	}
-	okpConfig["chunk_filter_query"] = getOKPChunkFilterQuery(instance)
+	okpConfig["chunk_filter_query"] = getOKPChunkFilterQuery(devConfig)
 	return okpConfig
 }
 
@@ -245,32 +246,27 @@ func buildLCoreMCPServersConfig(openStackReady bool) []interface{} {
 	return mcpServers
 }
 
-func buildLCoreMCPServersConfigIfEnabled(instance *apiv1beta1.OpenStackLightspeed) ([]interface{}, error) {
-	enabled, err := isRHOSMCPEnabled(instance)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse dev config: %w", err)
+func buildLCoreMCPServersConfigIfEnabled(instance *apiv1beta1.OpenStackLightspeed, devConfig apiv1beta1.DevSpec) []interface{} {
+	if !isRHOSMCPEnabled(devConfig) {
+		return []interface{}{}
 	}
-	if !enabled {
-		return []interface{}{}, nil
-	}
-	return buildLCoreMCPServersConfig(instance.Status.OpenStackReady), nil
+	return buildLCoreMCPServersConfig(instance.Status.OpenStackReady)
 }
 
 // buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML.
 // NOTE: quota handlers, and tools approval features are disabled for OpenStack Lightspeed.
-func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) (string, error) {
+func buildLCoreConfigYAML(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) (string, error) {
+	devConfig := devConfigFromContext(ctx)
+
 	ragInline := []interface{}{}
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfig) {
 		ragInline = append(ragInline, "okp")
 	}
 	ragConfig := map[string]interface{}{
 		"inline": ragInline,
 	}
 
-	mcpServers, err := buildLCoreMCPServersConfigIfEnabled(instance)
-	if err != nil {
-		return "", err
-	}
+	mcpServers := buildLCoreMCPServersConfigIfEnabled(instance, devConfig)
 
 	// Build the complete config as a map
 	config := map[string]interface{}{
@@ -288,8 +284,8 @@ func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStac
 		"mcp_servers":          mcpServers,
 	}
 
-	if isOKPEnabled(instance) {
-		config["okp"] = buildOKPConfig(instance)
+	if isOKPEnabled(devConfig) {
+		config["okp"] = buildOKPConfig(instance, devConfig)
 	}
 
 	// Convert to YAML

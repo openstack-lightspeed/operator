@@ -1,0 +1,8 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      oc patch openstacklightspeed openstack-lightspeed -n openstack-lightspeed \
+        --type=json -p='[{"op":"replace","path":"/spec/maxTokensForResponse","value":0}]'
+    timeout: 30

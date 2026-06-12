@@ -237,16 +237,16 @@ func buildLlamaStackVectorDB(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLig
 	}
 }
 
-func buildLlamaStackVectorIO(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
+func buildLlamaStackVectorIO(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed, devConfig apiv1beta1.DevSpec) []interface{} {
 	providers := buildLlamaStackVectorDB(h, instance)
-	if isOKPEnabled(instance) {
-		providers = append(providers, buildOKPVectorIOProvider(instance))
+	if isOKPEnabled(devConfig) {
+		providers = append(providers, buildOKPVectorIOProvider(devConfig))
 	}
 	return providers
 }
 
-func buildOKPVectorIOProvider(instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
-	chunkFilterQuery := "is_chunk:true AND " + getOKPChunkFilterQuery(instance)
+func buildOKPVectorIOProvider(devConfig apiv1beta1.DevSpec) map[string]interface{} {
+	chunkFilterQuery := "is_chunk:true AND " + getOKPChunkFilterQuery(devConfig)
 
 	return map[string]interface{}{
 		"provider_id":   "okp_solr",
@@ -335,7 +335,7 @@ func buildLlamaStackStorage(_ *common_helper.Helper, instance *apiv1beta1.OpenSt
 	}
 }
 
-func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
+func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed, devConfig apiv1beta1.DevSpec) []interface{} {
 	models := []interface{}{}
 	// Add LLM models from the instance spec
 	{
@@ -361,7 +361,7 @@ func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenSta
 		}
 	}
 
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfig) {
 		models = append(models, map[string]interface{}{
 			"model_id":          "solr_embedding",
 			"model_type":        "embedding",
@@ -376,9 +376,9 @@ func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenSta
 	return models
 }
 
-func buildLlamaStackVectorStores(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
+func buildLlamaStackVectorStores(_ *common_helper.Helper, devConfig apiv1beta1.DevSpec) []interface{} {
 	stores := []interface{}{}
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfig) {
 		stores = append(stores, map[string]interface{}{
 			"vector_store_id":     "portal-rag",
 			"provider_id":         "okp_solr",
@@ -400,6 +400,8 @@ func buildLlamaStackToolGroups(_ *common_helper.Helper, _ *apiv1beta1.OpenStackL
 
 // buildLlamaStackYAML assembles the complete Llama Stack configuration and converts to YAML
 func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) (string, error) {
+	devConfig := devConfigFromContext(ctx)
+
 	// Build the complete config as a map
 	config := buildLlamaStackCoreConfig(h, instance)
 
@@ -409,7 +411,7 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 		return "", fmt.Errorf("failed to build inference providers: %w", err)
 	}
 
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfig) {
 		config["external_providers_dir"] = ExternalProvidersDir
 	}
 
@@ -420,7 +422,7 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 		"inference":    inferenceProviders,
 		"safety":       buildLlamaStackSafety(h, instance),
 		"tool_runtime": buildLlamaStackToolRuntime(h, instance),
-		"vector_io":    buildLlamaStackVectorIO(h, instance),
+		"vector_io":    buildLlamaStackVectorIO(h, instance, devConfig),
 	}
 
 	// Add top-level fields
@@ -431,8 +433,8 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 		"enabled": false,
 	}
 	config["registered_resources"] = map[string][]interface{}{
-		"models":        buildLlamaStackModels(h, instance),
-		"vector_stores": buildLlamaStackVectorStores(h, instance),
+		"models":        buildLlamaStackModels(h, instance, devConfig),
+		"vector_stores": buildLlamaStackVectorStores(h, devConfig),
 		"tool_groups":   buildLlamaStackToolGroups(h, instance),
 	}
 
