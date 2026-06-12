@@ -23,6 +23,18 @@ kind: Deployment
 metadata:
   name: lightspeed-postgres-server
   namespace: openstack-lightspeed
+spec:
+  template:
+    spec:
+      containers:
+        - name: lightspeed-postgres-server
+          resources:
+            requests:
+              cpu: 30m
+              memory: 300Mi
+            limits:
+              cpu: 500m
+              memory: 2Gi
 status:
   replicas: 1
   readyReplicas: 1
@@ -74,6 +86,13 @@ spec:
         - name: vector-database-config-build
       containers:
         - name: llama-stack
+          resources:
+            requests:
+              cpu: 500m
+              memory: 2Gi
+            limits:
+              cpu: "2"
+              memory: 8Gi
           env:
             - name: OPENSTACK_LIGHTSPEED_PROVIDER_API_KEY
               valueFrom:
@@ -103,6 +122,13 @@ spec:
             - name: llama-cache
               mountPath: /tmp/llama-stack
         - name: lightspeed-service-api
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 2Gi
           env:
             - name: LIGHTSPEED_STACK_LOG_LEVEL
               value: ERROR
@@ -199,6 +225,13 @@ spec:
     spec:
       initContainers:
         - name: rewrite-locales
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
           volumeMounts:
             - name: locales-rewrite
               mountPath: /locales-rewrite

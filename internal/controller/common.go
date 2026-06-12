@@ -99,15 +99,6 @@ func generatePostgresSelectorLabels() map[string]string {
 	}
 }
 
-// getResourcesOrDefault returns the provided resource requirements if non-nil,
-// otherwise returns the given default resource requirements.
-func getResourcesOrDefault(custom *corev1.ResourceRequirements, defaults corev1.ResourceRequirements) corev1.ResourceRequirements {
-	if custom != nil {
-		return *custom
-	}
-	return defaults
-}
-
 // isDeploymentReady checks whether the provided deployment is ready by verifying
 // that the deployment's observed generation matches the current generation and
 // all replicas (updated, available, and total) match the desired count.
