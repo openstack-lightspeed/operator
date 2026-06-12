@@ -280,7 +280,7 @@ func buildInitContainers(
 	}
 	devConfig, _ := parseDevConfig(instance)
 	if devConfig.OKPRagOnly {
-		configBuildCmd = append(configBuildCmd, "--okp-rag-only")
+		configBuildCmd = append(configBuildCmd, "--disable-rag-entries")
 	}
 
 	containers = append(containers, corev1.Container{

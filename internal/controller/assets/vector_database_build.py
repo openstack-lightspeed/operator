@@ -221,7 +221,7 @@ def ogx_process(ogx_config_source_path: Path, ogx_config_target: dict[str, Any])
 def lstack_process(
     ogx_config_source_path: Path,
     lstack_config_target: dict[str, Any],
-    okp_rag_only: bool = False,
+    disable_rag_entries: bool = False,
 ) -> dict[str, Any]:
     """Update Lightspeed stack config with RAG entries from OGX config source."""
     ogx_config_source = load_yaml_file(ogx_config_source_path)
@@ -246,7 +246,7 @@ def lstack_process(
         },
     )
 
-    if not okp_rag_only:
+    if not disable_rag_entries:
         add_unique(lstack_config_target["rag"]["inline"], vector_store_id)
     return lstack_config_target
 
@@ -281,10 +281,10 @@ def parse_arguments() -> argparse.Namespace:
         help="Path (as pathlib.Path) to the base Lightspeed Stack configuration file",
     )
     parser.add_argument(
-        "--okp-rag-only",
+        "--disable-rag-entries",
         action="store_true",
         default=False,
-        help="When set, skip adding vector store IDs to rag.inline (OKP is the only RAG source)",
+        help="When set, skip adding vector store IDs to rag.inline",
     )
 
     return parser.parse_args()
@@ -294,7 +294,9 @@ def main() -> None:
     """main"""
     args = parse_arguments()
     config_build(args.vector_db_path, args.ogx_config_path, ogx_process)
-    lstack_fn = functools.partial(lstack_process, okp_rag_only=args.okp_rag_only)
+    lstack_fn = functools.partial(
+        lstack_process, disable_rag_entries=args.disable_rag_entries
+    )
     config_build(args.vector_db_path, args.lightspeed_stack_path, lstack_fn)
 
 
