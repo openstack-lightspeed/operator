@@ -69,6 +69,12 @@ spec:
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
                 type: object
+              dev:
+                description: |-
+                  Dev contains developer/experimental configuration.
+                  This section is not part of the stable API and may change at any time without backward compatibility.
+                type: object
+                x-kubernetes-preserve-unknown-fields: true
               enableOCPRAG:
                 default: false
                 description: Enables automatic OCP documentation based on cluster
@@ -155,6 +161,24 @@ spec:
                   Allows forcing a specific OCP version instead of auto-detection.
                   Format should be like "4.15", "4.16", etc.
                 type: string
+              okp:
+                description: OKP configures the Offline Knowledge Portal (OKP) RAG
+                  source.
+                properties:
+                  accessKey:
+                    description: |-
+                      AccessKey is the name of the Secret containing the access key for the OKP server.
+                      The secret must contain a key named "access_key".
+                      An access key can be obtained from https://access.redhat.com/offline/access
+                    type: string
+                  offline:
+                    default: true
+                    description: |-
+                      Offline controls how source URLs are resolved.
+                      When true, uses parent_id (offline/Mimir-style).
+                      When false, uses reference_url (online).
+                    type: boolean
+                type: object
               ragImage:
                 description: ContainerImage for the OpenStack Lightspeed RAG container
                   (will be set to environmental default if empty)

@@ -66,10 +66,10 @@ func (r *OpenStackLightspeedReconciler) GetLogger(ctx context.Context) logr.Logg
 // +kubebuilder:rbac:groups=config.openshift.io,resources=clusterversions,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=secrets,resourceNames=pull-secret,verbs=get
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update
-// +kubebuilder:rbac:groups=apps,resources=deployments,namespace=openstack-lightspeed,verbs=get;list;watch;create;update;patch
+// +kubebuilder:rbac:groups=apps,resources=deployments,namespace=openstack-lightspeed,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups="",resources=configmaps,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups="",resources=secrets,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update;delete;deletecollection
-// +kubebuilder:rbac:groups="",resources=services,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update
+// +kubebuilder:rbac:groups="",resources=services,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch;update;delete
 // +kubebuilder:rbac:groups="",resources=serviceaccounts,namespace=openstack-lightspeed,verbs=get;list;watch;create;patch
 // +kubebuilder:rbac:groups=console.openshift.io,resources=consoleplugins,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=operator.openshift.io,resources=consoles,verbs=watch;list;get;update
@@ -167,9 +167,15 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 		instance.Spec.MaxTokensForResponse = apiv1beta1.OpenStackLightspeedDefaultValues.MaxTokensForResponse
 	}
 
+	// Log dev config parse errors so misconfigurations don't silently disable features.
+	if _, err := parseDevConfig(instance); err != nil {
+		Log.Error(err, "failed to parse dev config, ignoring")
+	}
+
 	reconcileTasks := []ReconcileTask{
 		{Name: "PostgresResources", Task: ReconcilePostgresResources},
 		{Name: "PostgresDeployment", Task: ReconcilePostgresDeployment},
+		{Name: "OKPDeployment", Task: ReconcileOKPDeployment},
 		{Name: "LCoreResources", Task: ReconcileLCoreResources},
 		{Name: "LCoreDeployment", Task: ReconcileLCoreDeployment},
 		{Name: "ConsoleResources", Task: ReconcileConsoleResources},

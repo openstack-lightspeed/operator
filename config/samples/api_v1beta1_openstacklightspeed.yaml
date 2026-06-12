@@ -15,3 +15,11 @@ spec:
   # database:
   #   size: "5Gi"
   #   class: "my-storage-class"
+  # Uncomment to enable OKP (Offline Knowledge Portal) as an Inline RAG source:
+  # okp:
+  #   accessKey: okp-access-key-secret
+  # dev:
+  #   featureFlags:
+  #     - okp
+  #   okpChunkFilterQuery: "product:(*openstack* OR *openshift*)"
+  #   okpRagOnly: true

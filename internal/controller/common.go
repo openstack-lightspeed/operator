@@ -19,11 +19,14 @@ package controller
 import (
 	"context"
 	_ "embed"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
+	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
@@ -115,6 +118,43 @@ func isDeploymentReady(deploy *appsv1.Deployment) bool {
 	return deploy.Status.UpdatedReplicas == replicas &&
 		deploy.Status.AvailableReplicas == replicas &&
 		deploy.Status.Replicas == replicas
+}
+
+// generateOKPSelectorLabels returns selector labels for OKP components.
+func generateOKPSelectorLabels() map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/component":  "okp-server",
+		"app.kubernetes.io/managed-by": "openstack-lightspeed-operator",
+		"app.kubernetes.io/name":       "openstack-lightspeed-okp-server",
+		"app.kubernetes.io/part-of":    "openstack-lightspeed",
+	}
+}
+
+// parseDevConfig unmarshals the Dev RawExtension into a DevSpec.
+// Returns a zero-value DevSpec and an error on malformed input.
+func parseDevConfig(instance *apiv1beta1.OpenStackLightspeed) (apiv1beta1.DevSpec, error) {
+	var config apiv1beta1.DevSpec
+	if len(instance.Spec.Dev.Raw) > 0 {
+		if err := json.Unmarshal(instance.Spec.Dev.Raw, &config); err != nil {
+			return config, err
+		}
+	}
+	return config, nil
+}
+
+// isOKPEnabled returns true if the "okp" feature flag is present in the dev config.
+func isOKPEnabled(instance *apiv1beta1.OpenStackLightspeed) bool {
+	config, _ := parseDevConfig(instance)
+	return slices.Contains(config.FeatureFlags, "okp")
+}
+
+// getOKPChunkFilterQuery returns the chunk filter query from the dev config, or the default.
+func getOKPChunkFilterQuery(instance *apiv1beta1.OpenStackLightspeed) string {
+	config, _ := parseDevConfig(instance)
+	if config.OKPChunkFilterQuery != "" {
+		return config.OKPChunkFilterQuery
+	}
+	return OKPDefaultChunkFilterQuery
 }
 
 // getDeployment retrieves deployment from the cluster

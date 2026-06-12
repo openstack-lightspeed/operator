@@ -233,6 +233,47 @@ func buildLlamaStackVectorDB(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLig
 	}
 }
 
+func buildLlamaStackVectorIO(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
+	providers := buildLlamaStackVectorDB(h, instance)
+	if isOKPEnabled(instance) {
+		providers = append(providers, buildOKPVectorIOProvider(instance))
+	}
+	return providers
+}
+
+func buildOKPVectorIOProvider(instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+	chunkFilterQuery := "is_chunk:true AND " + getOKPChunkFilterQuery(instance)
+
+	return map[string]interface{}{
+		"provider_id":   "okp_solr",
+		"provider_type": "remote::solr_vector_io",
+		"config": map[string]interface{}{
+			"solr_url":            "${env.RH_SERVER_OKP}/solr",
+			"collection_name":     "${env.SOLR_COLLECTION:=portal-rag}",
+			"content_field":       "${env.SOLR_CONTENT_FIELD:=chunk}",
+			"vector_field":        "${env.SOLR_VECTOR_FIELD:=chunk_vector}",
+			"embedding_dimension": "${env.SOLR_EMBEDDING_DIM:=384}",
+			"embedding_model":     "${env.SOLR_EMBEDDING_MODEL:=sentence-transformers/ibm-granite/granite-embedding-30m-english}",
+			"persistence": map[string]interface{}{
+				"backend":   "kv_default",
+				"namespace": "portal-rag",
+			},
+			"chunk_window_config": map[string]interface{}{
+				"chunk_content_field":           "chunk_field",
+				"chunk_index_field":             "chunk_index",
+				"chunk_filter_query":            chunkFilterQuery,
+				"chunk_parent_id_field":         "parent_id",
+				"chunk_source_path_field":       "source_path",
+				"chunk_online_source_url_field": "online_source_url",
+				"chunk_token_count_field":       "num_tokens",
+				"parent_total_chunks_field":     "total_chunks",
+				"parent_total_tokens_field":     "total_tokens",
+				"chunk_family_fields":           []interface{}{"headings"},
+			},
+		},
+	}
+}
+
 func buildLlamaStackServerConfig(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
 	return map[string]interface{}{
 		"auth":         nil,
@@ -316,7 +357,32 @@ func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenSta
 		}
 	}
 
+	if isOKPEnabled(instance) {
+		models = append(models, map[string]interface{}{
+			"model_id":          "solr_embedding",
+			"model_type":        "embedding",
+			"provider_id":       "sentence-transformers",
+			"provider_model_id": "${env.SOLR_EMBEDDING_MODEL:=ibm-granite/granite-embedding-30m-english}",
+			"metadata": map[string]interface{}{
+				"embedding_dimension": 384,
+			},
+		})
+	}
+
 	return models
+}
+
+func buildLlamaStackVectorStores(_ *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) []interface{} {
+	stores := []interface{}{}
+	if isOKPEnabled(instance) {
+		stores = append(stores, map[string]interface{}{
+			"vector_store_id":     "portal-rag",
+			"provider_id":         "okp_solr",
+			"embedding_dimension": 384,
+			"embedding_model":     "${env.SOLR_EMBEDDING_MODEL:=sentence-transformers/ibm-granite/granite-embedding-30m-english}",
+		})
+	}
+	return stores
 }
 
 func buildLlamaStackToolGroups(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) []interface{} {
@@ -339,6 +405,10 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 		return "", fmt.Errorf("failed to build inference providers: %w", err)
 	}
 
+	if isOKPEnabled(instance) {
+		config["external_providers_dir"] = ExternalProvidersDir
+	}
+
 	// Build providers map - only include providers for enabled APIs
 	config["providers"] = map[string]interface{}{
 		"files":        buildLlamaStackFileProviders(h, instance),
@@ -346,7 +416,7 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 		"inference":    inferenceProviders,
 		"safety":       buildLlamaStackSafety(h, instance),
 		"tool_runtime": buildLlamaStackToolRuntime(h, instance),
-		"vector_io":    buildLlamaStackVectorDB(h, instance),
+		"vector_io":    buildLlamaStackVectorIO(h, instance),
 	}
 
 	// Add top-level fields
@@ -358,7 +428,7 @@ func buildLlamaStackYAML(h *common_helper.Helper, ctx context.Context, instance 
 	}
 	config["registered_resources"] = map[string][]interface{}{
 		"models":        buildLlamaStackModels(h, instance),
-		"vector_stores": {},
+		"vector_stores": buildLlamaStackVectorStores(h, instance),
 		"tool_groups":   buildLlamaStackToolGroups(h, instance),
 	}
 

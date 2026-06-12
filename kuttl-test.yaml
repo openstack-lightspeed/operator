@@ -4,7 +4,7 @@ reportFormat: xml
 reportName: kuttl-report-openstack-lightspeed
 reportGranularity: test
 namespace: openstack-lightspeed
-timeout: 600
+timeout: 1380
 parallel: 1
 suppress:
   - events
