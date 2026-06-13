@@ -300,7 +300,7 @@ func buildLlamaStackStorage(_ *common_helper.Helper, instance *apiv1beta1.OpenSt
 		},
 		"postgres_backend": map[string]interface{}{
 			"type":     "sql_postgres",
-			"host":     fmt.Sprintf("lightspeed-postgres-server.%s.svc", instance.GetNamespace()),
+			"host":     fmt.Sprintf("%s.%s.svc", PostgresServiceName(instance.Name), instance.GetNamespace()),
 			"port":     PostgresServicePort,
 			"user":     "postgres",
 			"password": "${env.POSTGRES_PASSWORD}",

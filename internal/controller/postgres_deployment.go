@@ -26,7 +26,7 @@ import (
 )
 
 // buildPostgresPodTemplateSpec builds the pod template spec for the Postgres deployment.
-func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
+func buildPostgresPodTemplateSpec(instanceName string) corev1.PodTemplateSpec {
 	// Build volumes and volume mounts
 	volumes := []corev1.Volume{}
 	volumeMounts := []corev1.VolumeMount{}
@@ -36,32 +36,32 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 
 	// TLS certs volume (auto-provisioned by service-ca via the Service annotation)
 	volumes = append(volumes, corev1.Volume{
-		Name: "secret-" + PostgresCertsSecretName,
+		Name: "secret-" + PostgresCertsSecretName(instanceName),
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName:  PostgresCertsSecretName,
+				SecretName:  PostgresCertsSecretName(instanceName),
 				DefaultMode: &restrictedMode,
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		Name:      "secret-" + PostgresCertsSecretName,
+		Name:      "secret-" + PostgresCertsSecretName(instanceName),
 		MountPath: OpenStackLightspeedAppCertsMountRoot,
 		ReadOnly:  true,
 	})
 
 	// Bootstrap script volume
 	volumes = append(volumes, corev1.Volume{
-		Name: "secret-" + PostgresBootstrapSecretName,
+		Name: "secret-" + PostgresBootstrapSecretName(instanceName),
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName:  PostgresBootstrapSecretName,
+				SecretName:  PostgresBootstrapSecretName(instanceName),
 				DefaultMode: &restrictedMode,
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		Name:      "secret-" + PostgresBootstrapSecretName,
+		Name:      "secret-" + PostgresBootstrapSecretName(instanceName),
 		MountPath: PostgresBootstrapVolumeMountPath,
 		SubPath:   PostgresExtensionScript,
 		ReadOnly:  true,
@@ -69,16 +69,16 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 
 	// Postgres config volume
 	volumes = append(volumes, corev1.Volume{
-		Name: PostgresConfigMapName,
+		Name: PostgresConfigMapName(instanceName),
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
-				LocalObjectReference: corev1.LocalObjectReference{Name: PostgresConfigMapName},
+				LocalObjectReference: corev1.LocalObjectReference{Name: PostgresConfigMapName(instanceName)},
 				DefaultMode:          &defaultMode,
 			},
 		},
 	})
 	volumeMounts = append(volumeMounts, corev1.VolumeMount{
-		Name:      PostgresConfigMapName,
+		Name:      PostgresConfigMapName(instanceName),
 		MountPath: PostgresConfigVolumeMountPath,
 		SubPath:   PostgresConfigKey,
 	})
@@ -87,7 +87,7 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 		Name: PostgresDataVolume,
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: PostgresDataPVCName,
+				ClaimName: PostgresDataPVCName(instanceName),
 			},
 		},
 	})
@@ -122,13 +122,13 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels:      generatePostgresSelectorLabels(),
+			Labels:      generatePostgresSelectorLabels(instanceName),
 			Annotations: make(map[string]string),
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
 				{
-					Name:            PostgresDeploymentName,
+					Name:            PostgresDeploymentName(instanceName),
 					Image:           apiv1beta1.OpenStackLightspeedDefaultValues.PostgresImageURL,
 					ImagePullPolicy: corev1.PullAlways,
 					Ports: []corev1.ContainerPort{
@@ -174,7 +174,7 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 							Name: "POSTGRESQL_ADMIN_PASSWORD",
 							ValueFrom: &corev1.EnvVarSource{
 								SecretKeyRef: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{Name: PostgresSecretName},
+									LocalObjectReference: corev1.LocalObjectReference{Name: PostgresSecretName(instanceName)},
 									Key:                  OpenStackLightspeedComponentPasswordFileName,
 								},
 							},
@@ -183,7 +183,7 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 							Name: "POSTGRESQL_PASSWORD",
 							ValueFrom: &corev1.EnvVarSource{
 								SecretKeyRef: &corev1.SecretKeySelector{
-									LocalObjectReference: corev1.LocalObjectReference{Name: PostgresSecretName},
+									LocalObjectReference: corev1.LocalObjectReference{Name: PostgresSecretName(instanceName)},
 									Key:                  OpenStackLightspeedComponentPasswordFileName,
 								},
 							},

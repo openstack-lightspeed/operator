@@ -69,12 +69,12 @@ func ReconcileConsoleDeployment(h *common_helper.Helper, ctx context.Context, in
 }
 
 // reconcileConsoleConfigMap ensures the console plugin nginx ConfigMap exists.
-func reconcileConsoleConfigMap(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileConsoleConfigMap(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUIConfigMapName,
+			Name:      ConsoleUIConfigMapName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -95,18 +95,18 @@ func reconcileConsoleConfigMap(h *common_helper.Helper, ctx context.Context, _ *
 }
 
 // reconcileConsoleNetworkPolicy ensures the console plugin network policy exists.
-func reconcileConsoleNetworkPolicy(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileConsoleNetworkPolicy(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
 	np := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUINetworkPolicyName,
+			Name:      ConsoleUINetworkPolicyName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), np, func() error {
-		np.Spec = buildConsoleNetworkPolicySpec()
+		np.Spec = buildConsoleNetworkPolicySpec(instance.Name)
 		return controllerutil.SetControllerReference(h.GetBeforeObject(), np, h.GetScheme())
 	})
 
@@ -119,12 +119,12 @@ func reconcileConsoleNetworkPolicy(h *common_helper.Helper, ctx context.Context,
 }
 
 // reconcileConsoleServiceAccount ensures the console plugin service account exists.
-func reconcileConsoleServiceAccount(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileConsoleServiceAccount(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUIServiceAccountName,
+			Name:      ConsoleUIServiceAccountName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -181,20 +181,20 @@ func resolveConsoleImage(ctx context.Context, h *common_helper.Helper) string {
 }
 
 // reconcileConsoleDeploymentResource ensures the console plugin deployment exists.
-func reconcileConsoleDeploymentResource(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileConsoleDeploymentResource(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
 	consoleImage := resolveConsoleImage(ctx, h)
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUIDeploymentName,
+			Name:      ConsoleUIDeploymentName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), deployment, func() error {
-		spec := buildConsoleDeploymentSpec(consoleImage)
+		spec := buildConsoleDeploymentSpec(instance.Name, consoleImage)
 		deployment.Spec.Replicas = spec.Replicas
 		deployment.Spec.Selector = spec.Selector
 		deployment.Spec.Template = spec.Template
@@ -210,18 +210,18 @@ func reconcileConsoleDeploymentResource(h *common_helper.Helper, ctx context.Con
 }
 
 // reconcileConsoleService ensures the console plugin service exists.
-func reconcileConsoleService(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileConsoleService(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ConsoleUIServiceName,
+			Name:      ConsoleUIServiceName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), svc, func() error {
-		svc.Spec.Selector = generateConsoleSelectorLabels()
+		svc.Spec.Selector = generateConsoleSelectorLabels(instance.Name)
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
 				Port:       ConsoleUIHTTPSPort,
@@ -235,7 +235,7 @@ func reconcileConsoleService(h *common_helper.Helper, ctx context.Context, _ *ap
 		if svc.Annotations == nil {
 			svc.Annotations = make(map[string]string)
 		}
-		svc.Annotations[ServingCertSecretAnnotationKey] = ConsoleUIServiceCertSecretName
+		svc.Annotations[ServingCertSecretAnnotationKey] = ConsoleUIServiceCertSecretName(instance.Name)
 
 		return controllerutil.SetControllerReference(h.GetBeforeObject(), svc, h.GetScheme())
 	})
@@ -250,12 +250,12 @@ func reconcileConsoleService(h *common_helper.Helper, ctx context.Context, _ *ap
 
 // reconcileConsoleTLSSecret waits for the console TLS secret to be populated by
 // the service-ca operator.
-func reconcileConsoleTLSSecret(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileConsoleTLSSecret(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
-	logger.Info("waiting for console TLS secret", "name", ConsoleUIServiceCertSecretName)
+	logger.Info("waiting for console TLS secret", "name", ConsoleUIServiceCertSecretName(instance.Name))
 
 	secretKey := client.ObjectKey{
-		Name:      ConsoleUIServiceCertSecretName,
+		Name:      ConsoleUIServiceCertSecretName(instance.Name),
 		Namespace: h.GetBeforeObject().GetNamespace(),
 	}
 
@@ -275,23 +275,23 @@ func reconcileConsoleTLSSecret(h *common_helper.Helper, ctx context.Context, _ *
 		return fmt.Errorf("%w: %v", ErrReconcileConsoleTLSSecret, err)
 	}
 
-	logger.Info("Console TLS secret is ready", "name", ConsoleUIServiceCertSecretName)
+	logger.Info("Console TLS secret is ready", "name", ConsoleUIServiceCertSecretName(instance.Name))
 	return nil
 }
 
 // reconcileConsolePlugin ensures the ConsolePlugin CR exists.
-func reconcileConsolePlugin(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileConsolePlugin(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 	namespace := h.GetBeforeObject().GetNamespace()
 
 	plugin := &consolev1.ConsolePlugin{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: ConsoleUIPluginName,
+			Name: ConsoleUIPluginName(instance.Name),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), plugin, func() error {
-		plugin.Spec = buildConsolePluginSpec(namespace)
+		plugin.Spec = buildConsolePluginSpec(instance.Name, namespace)
 		// ConsolePlugin is cluster-scoped, no owner reference
 		return nil
 	})
@@ -305,8 +305,9 @@ func reconcileConsolePlugin(h *common_helper.Helper, ctx context.Context, _ *api
 }
 
 // activateConsole adds the console plugin to the Console CR's plugin list.
-func activateConsole(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func activateConsole(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
+	pluginName := ConsoleUIPluginName(instance.Name)
 
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
 		console := &openshiftv1.Console{}
@@ -320,9 +321,9 @@ func activateConsole(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1
 		}
 
 		if console.Spec.Plugins == nil {
-			console.Spec.Plugins = []string{ConsoleUIPluginName}
-		} else if !slices.Contains(console.Spec.Plugins, ConsoleUIPluginName) {
-			console.Spec.Plugins = append(console.Spec.Plugins, ConsoleUIPluginName)
+			console.Spec.Plugins = []string{pluginName}
+		} else if !slices.Contains(console.Spec.Plugins, pluginName) {
+			console.Spec.Plugins = append(console.Spec.Plugins, pluginName)
 		} else {
 			return nil
 		}
@@ -338,8 +339,9 @@ func activateConsole(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1
 }
 
 // reconcileDeleteConsole deactivates the console plugin and deletes the ConsolePlugin CR.
-func reconcileDeleteConsole(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileDeleteConsole(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
+	pluginName := ConsoleUIPluginName(instance.Name)
 
 	// Deactivate: remove plugin from Console CR
 	err := retry.RetryOnConflict(retry.DefaultRetry, func() error {
@@ -356,12 +358,12 @@ func reconcileDeleteConsole(h *common_helper.Helper, ctx context.Context, _ *api
 		if console.Spec.Plugins == nil {
 			return nil
 		}
-		if !slices.Contains(console.Spec.Plugins, ConsoleUIPluginName) {
+		if !slices.Contains(console.Spec.Plugins, pluginName) {
 			return nil
 		}
 
 		console.Spec.Plugins = slices.DeleteFunc(console.Spec.Plugins, func(name string) bool {
-			return name == ConsoleUIPluginName
+			return name == pluginName
 		})
 
 		return h.GetClient().Update(ctx, console)
@@ -373,7 +375,7 @@ func reconcileDeleteConsole(h *common_helper.Helper, ctx context.Context, _ *api
 
 	// Delete ConsolePlugin CR
 	plugin := &consolev1.ConsolePlugin{}
-	err = h.GetClient().Get(ctx, client.ObjectKey{Name: ConsoleUIPluginName}, plugin)
+	err = h.GetClient().Get(ctx, client.ObjectKey{Name: pluginName}, plugin)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("ConsolePlugin not found, skip deletion")

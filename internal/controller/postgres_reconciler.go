@@ -62,10 +62,10 @@ func ReconcilePostgresDeployment(h *common_helper.Helper, ctx context.Context, i
 	return ReconcileTasksFailFast(h, ctx, instance, tasks)
 }
 
-func reconcilePostgresConfigMap(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcilePostgresConfigMap(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresConfigMapName,
+			Name:      PostgresConfigMapName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -87,10 +87,10 @@ func reconcilePostgresConfigMap(h *common_helper.Helper, ctx context.Context, _ 
 	return nil
 }
 
-func reconcilePostgresBootstrapSecret(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcilePostgresBootstrapSecret(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresBootstrapSecretName,
+			Name:      PostgresBootstrapSecretName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -112,11 +112,11 @@ func reconcilePostgresBootstrapSecret(h *common_helper.Helper, ctx context.Conte
 	return nil
 }
 
-func reconcilePostgresSecret(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcilePostgresSecret(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	// Check if secret exists - if not, cleanup old secrets first
 	checkSecret := &corev1.Secret{}
 	secretKey := client.ObjectKey{
-		Name:      PostgresSecretName,
+		Name:      PostgresSecretName(instance.Name),
 		Namespace: h.GetBeforeObject().GetNamespace(),
 	}
 	err := h.GetClient().Get(ctx, secretKey, checkSecret)
@@ -131,7 +131,7 @@ func reconcilePostgresSecret(h *common_helper.Helper, ctx context.Context, _ *ap
 
 	secret := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresSecretName,
+			Name:      PostgresSecretName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -176,10 +176,10 @@ func deleteOldPostgresSecrets(h *common_helper.Helper, ctx context.Context) erro
 	return nil
 }
 
-func reconcilePostgresNetworkPolicy(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcilePostgresNetworkPolicy(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	np := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresNetworkPolicyName,
+			Name:      PostgresNetworkPolicyName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -189,14 +189,14 @@ func reconcilePostgresNetworkPolicy(h *common_helper.Helper, ctx context.Context
 		// Restricts ingress to Postgres to only allow traffic from app server pods
 		np.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
-				MatchLabels: generatePostgresSelectorLabels(),
+				MatchLabels: generatePostgresSelectorLabels(instance.Name),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{
 					From: []networkingv1.NetworkPolicyPeer{
 						{
 							PodSelector: &metav1.LabelSelector{
-								MatchLabels: generateAppServerSelectorLabels(),
+								MatchLabels: generateAppServerSelectorLabels(instance.Name),
 							},
 						},
 					},
@@ -236,7 +236,7 @@ func reconcilePostgresPVC(h *common_helper.Helper, ctx context.Context, instance
 
 	pvc := &corev1.PersistentVolumeClaim{}
 	pvcKey := client.ObjectKey{
-		Name:      PostgresDataPVCName,
+		Name:      PostgresDataPVCName(instance.Name),
 		Namespace: h.GetBeforeObject().GetNamespace(),
 	}
 
@@ -259,7 +259,7 @@ func reconcilePostgresPVC(h *common_helper.Helper, ctx context.Context, instance
 	// PVC does not exist, create it
 	pvc = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresDataPVCName,
+			Name:      PostgresDataPVCName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -288,19 +288,19 @@ func reconcilePostgresPVC(h *common_helper.Helper, ctx context.Context, instance
 func reconcilePostgresDeploymentTask(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresDeploymentName,
+			Name:      PostgresDeploymentName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), deployment, func() error {
-		currentConfigMapVersion, err := getConfigMapResourceVersion(ctx, h, PostgresConfigMapName, h.GetBeforeObject().GetNamespace())
+		currentConfigMapVersion, err := getConfigMapResourceVersion(ctx, h, PostgresConfigMapName(instance.Name), h.GetBeforeObject().GetNamespace())
 		if err != nil && !errors.IsNotFound(err) {
 			return fmt.Errorf("%w: %v", ErrGetPostgresConfigMap, err)
 		}
 
 		// Build the desired deployment pod spec
-		podTemplateSpec := buildPostgresPodTemplateSpec()
+		podTemplateSpec := buildPostgresPodTemplateSpec(instance.Name)
 
 		// Initialize annotations map if needed
 		if podTemplateSpec.Annotations == nil {
@@ -315,7 +315,7 @@ func reconcilePostgresDeploymentTask(h *common_helper.Helper, ctx context.Contex
 		replicas := int32(1)
 		deployment.Spec.Replicas = &replicas
 		deployment.Spec.Selector = &metav1.LabelSelector{
-			MatchLabels: generatePostgresSelectorLabels(),
+			MatchLabels: generatePostgresSelectorLabels(instance.Name),
 		}
 		deployment.Spec.Template = podTemplateSpec
 
@@ -335,17 +335,17 @@ func reconcilePostgresDeploymentTask(h *common_helper.Helper, ctx context.Contex
 	return nil
 }
 
-func reconcilePostgresServiceTask(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcilePostgresServiceTask(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      PostgresServiceName,
+			Name:      PostgresServiceName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), svc, func() error {
 		// Selective field updates (preserves ClusterIP, ClusterIPs, etc.)
-		svc.Spec.Selector = generatePostgresSelectorLabels()
+		svc.Spec.Selector = generatePostgresSelectorLabels(instance.Name)
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
 				Port:       PostgresServicePort,
@@ -360,7 +360,7 @@ func reconcilePostgresServiceTask(h *common_helper.Helper, ctx context.Context, 
 		if svc.Annotations == nil {
 			svc.Annotations = make(map[string]string)
 		}
-		svc.Annotations[ServingCertSecretAnnotationKey] = PostgresCertsSecretName
+		svc.Annotations[ServingCertSecretAnnotationKey] = PostgresCertsSecretName(instance.Name)
 
 		// Set owner reference
 		return controllerutil.SetControllerReference(h.GetBeforeObject(), svc, h.GetScheme())
