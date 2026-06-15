@@ -213,20 +213,33 @@ func (r *OpenStackLightspeedReconciler) Reconcile(ctx context.Context, req ctrl.
 
 	// Reconcile MCP server before LCore resources, because its result
 	// determines what goes into the lightspeed-stack config (mcp_servers section).
-	openStackReady, mcpErr := r.ReconcileMCPServer(ctx, helper, instance)
-	if mcpErr != nil {
-		instance.Status.Conditions.Set(condition.FalseCondition(
-			apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
-			condition.ErrorReason,
-			condition.SeverityWarning,
-			apiv1beta1.DeploymentCheckFailedMessage,
-			mcpErr.Error(),
-		))
-		return ctrl.Result{}, mcpErr
+	rhosMCPEnabled, err := isRHOSMCPEnabled(instance)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to parse dev config: %w", err)
 	}
-
-	// Store the OpenStack readiness for config generation
-	instance.Status.OpenStackReady = openStackReady
+	if rhosMCPEnabled {
+		openStackReady, mcpErr := r.ReconcileMCPServer(ctx, helper, instance)
+		if mcpErr != nil {
+			instance.Status.Conditions.Set(condition.FalseCondition(
+				apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
+				condition.ErrorReason,
+				condition.SeverityWarning,
+				apiv1beta1.DeploymentCheckFailedMessage,
+				mcpErr.Error(),
+			))
+			return ctrl.Result{}, mcpErr
+		}
+		instance.Status.OpenStackReady = openStackReady
+	} else {
+		if err := r.cleanupMCPResources(ctx, helper, instance); err != nil {
+			return ctrl.Result{}, err
+		}
+		instance.Status.OpenStackReady = false
+		instance.Status.Conditions.MarkTrue(
+			apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
+			apiv1beta1.OpenStackLightspeedMCPServerDisabledMessage,
+		)
+	}
 
 	reconcileTasks := []ReconcileTask{
 		{Name: "PostgresResources", Task: ReconcilePostgresResources},
@@ -315,17 +328,24 @@ func (r *OpenStackLightspeedReconciler) reconcileStatus(
 		}
 	}
 
-	// Mark MCP server condition based on readiness
-	if instance.Status.OpenStackReady {
-		instance.Status.Conditions.MarkTrue(
-			apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
-			apiv1beta1.OpenStackLightspeedMCPServerDeployed,
-		)
-	} else {
-		instance.Status.Conditions.MarkTrue(
-			apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
-			apiv1beta1.OpenStackLightspeedMCPServerWaitingOpenStack,
-		)
+	// Mark MCP server condition based on readiness (only when RHOS MCP is enabled;
+	// when disabled the condition was already set in Reconcile).
+	rhosMCPEnabled, err := isRHOSMCPEnabled(instance)
+	if err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to parse dev config: %w", err)
+	}
+	if rhosMCPEnabled {
+		if instance.Status.OpenStackReady {
+			instance.Status.Conditions.MarkTrue(
+				apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
+				apiv1beta1.OpenStackLightspeedMCPServerDeployed,
+			)
+		} else {
+			instance.Status.Conditions.MarkTrue(
+				apiv1beta1.OpenStackLightspeedMCPServerReadyCondition,
+				apiv1beta1.OpenStackLightspeedMCPServerWaitingOpenStack,
+			)
+		}
 	}
 
 	instance.Status.Conditions.MarkTrue(

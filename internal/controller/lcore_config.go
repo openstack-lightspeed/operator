@@ -245,6 +245,17 @@ func buildLCoreMCPServersConfig(openStackReady bool) []interface{} {
 	return mcpServers
 }
 
+func buildLCoreMCPServersConfigIfEnabled(instance *apiv1beta1.OpenStackLightspeed) ([]interface{}, error) {
+	enabled, err := isRHOSMCPEnabled(instance)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse dev config: %w", err)
+	}
+	if !enabled {
+		return []interface{}{}, nil
+	}
+	return buildLCoreMCPServersConfig(instance.Status.OpenStackReady), nil
+}
+
 // buildLCoreConfigYAML assembles the complete Lightspeed Core Service configuration and converts to YAML.
 // NOTE: quota handlers, and tools approval features are disabled for OpenStack Lightspeed.
 func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) (string, error) {
@@ -254,6 +265,11 @@ func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStac
 	}
 	ragConfig := map[string]interface{}{
 		"inline": ragInline,
+	}
+
+	mcpServers, err := buildLCoreMCPServersConfigIfEnabled(instance)
+	if err != nil {
+		return "", err
 	}
 
 	// Build the complete config as a map
@@ -269,7 +285,7 @@ func buildLCoreConfigYAML(h *common_helper.Helper, instance *apiv1beta1.OpenStac
 		"conversation_cache":   buildLCoreConversationCacheConfig(h, instance),
 		"byok_rag":             []interface{}{},
 		"rag":                  ragConfig,
-		"mcp_servers":          buildLCoreMCPServersConfig(instance.Status.OpenStackReady),
+		"mcp_servers":          mcpServers,
 	}
 
 	if isOKPEnabled(instance) {

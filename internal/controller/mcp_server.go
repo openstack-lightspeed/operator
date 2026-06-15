@@ -291,6 +291,52 @@ func extractOSCPFields(
 	}, nil
 }
 
+// ---------------------------------------------------------------------------
+// Deletion
+// ---------------------------------------------------------------------------
+
+// cleanupMCPResources removes MCP server resources when the rhos_mcps feature
+// flag is disabled.
+func (r *OpenStackLightspeedReconciler) cleanupMCPResources(
+	ctx context.Context,
+	helper *common_helper.Helper,
+	instance *apiv1beta1.OpenStackLightspeed,
+) error {
+	log := helper.GetLogger()
+	ns := instance.Namespace
+
+	mcpCM := &corev1.ConfigMap{}
+	mcpCM.Name = MCPConfigYAMLConfigMapName
+	mcpCM.Namespace = ns
+	if err := helper.GetClient().Delete(ctx, mcpCM); err != nil && !k8s_errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete MCP config ConfigMap: %w", err)
+	}
+
+	cloudsCM := &corev1.ConfigMap{}
+	cloudsCM.Name = CloudsYAMLConfigMapName
+	cloudsCM.Namespace = ns
+	if err := helper.GetClient().Delete(ctx, cloudsCM); err != nil && !k8s_errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete openstack-config ConfigMap: %w", err)
+	}
+
+	secureSec := &corev1.Secret{}
+	secureSec.Name = SecureYAMLSecretName
+	secureSec.Namespace = ns
+	if err := helper.GetClient().Delete(ctx, secureSec); err != nil && !k8s_errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete openstack-config-secret Secret: %w", err)
+	}
+
+	caSec := &corev1.Secret{}
+	caSec.Name = CombinedCABundleSecretName
+	caSec.Namespace = ns
+	if err := helper.GetClient().Delete(ctx, caSec); err != nil && !k8s_errors.IsNotFound(err) {
+		return fmt.Errorf("failed to delete combined-ca-bundle Secret: %w", err)
+	}
+
+	log.Info("RHOS MCP resources cleaned up")
+	return nil
+}
+
 // copyObjectsToOpenStackLightspeedNamespace copies the required ConfigMaps and Secrets
 // from the OpenStackControlPlane's namespace to the OpenStack Lightspeed namespace.
 func copyObjectsToOpenStackLightspeedNamespace(

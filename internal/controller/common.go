@@ -170,6 +170,15 @@ func isOKPEnabled(instance *apiv1beta1.OpenStackLightspeed) bool {
 	return slices.Contains(config.FeatureFlags, "okp")
 }
 
+// isRHOSMCPEnabled returns true if the "rhos_mcps" feature flag is present in the dev config.
+func isRHOSMCPEnabled(instance *apiv1beta1.OpenStackLightspeed) (bool, error) {
+	config, err := parseDevConfig(instance)
+	if err != nil {
+		return false, err
+	}
+	return slices.Contains(config.FeatureFlags, "rhos_mcps"), nil
+}
+
 // getOKPChunkFilterQuery returns the chunk filter query from the dev config, or the default.
 func getOKPChunkFilterQuery(instance *apiv1beta1.OpenStackLightspeed) string {
 	config, _ := parseDevConfig(instance)
