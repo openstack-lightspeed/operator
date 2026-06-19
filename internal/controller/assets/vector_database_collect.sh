@@ -38,23 +38,28 @@
 # │   └── ocp_latest/
 # │       ├── faiss_store.db
 # │       └── llama-stack.yaml
-# └── embeddings_model/
+# ├── embeddings_model/
+# │   └── <model_files>
+# └── okp_embeddings_model/
 #     └── <model_files>
 #
 # Output Structure:
 # <target-path>/            (specified via --vector-db-path)
-# └── <random-tmp-dir>/
-#     ├── vector_db/
-#     │   ├── vector-db-data-1/
-#     │   ├── vector-db-data-N/
-#     │   └── ocp_X.YZ/     (if --enable-ocp-rag true and --ocp-version X.YZ)
-#     └── embeddings_model/
-#         └── <model_files>
+# ├── <random-tmp-dir>/
+# │   ├── vector_db/
+# │   │   ├── vector-db-data-1/
+# │   │   ├── vector-db-data-N/
+# │   │   └── ocp_X.YZ/     (if --enable-ocp-rag true and --ocp-version X.YZ)
+# │   └── embeddings_model/
+# │       └── <model_files>
+# └── okp_embeddings_model/  (if --enable-okp true)
+#     └── <model_files>
 #
 # Arguments:
 #  --vector-db-path PATH    Target directory for collected data (required)
 #  --enable-ocp-rag BOOL    Enable OCP vector DB collection: true/false (required)
 #  --ocp-version VERSION    OCP version to collect, e.g., "X.YZ" (required)
+#  --enable-okp             Enable OKP embedding model collection (flag, default: disabled)
 
 set -eu
 
@@ -74,6 +79,11 @@ ENABLE_OCP_RAG=""
 # the vector database image -> ${OCP_VECTOR_DB_DIR}/ocp_${OCP_VERSION}. Populated
 # via parse_arguments_and_init.
 OCP_VERSION=""
+
+# ENABLE_OKP specifies whether this script should collect the OKP embedding
+# model (expected to be found under OKP_EMBEDDING_MODEL_SRC). Defaults to
+# "false"; set to "true" via --enable-okp to enable collection.
+ENABLE_OKP="false"
 # ----------------------------------------------------------------------------
 
 # -- Global vars -------------------------------------------------------------
@@ -110,6 +120,10 @@ VECTOR_DB_DIR="/rag/vector_db"
 # where embeddings model must reside.
 EMBEDDINGS_MODEL_DIR="/rag/embeddings_model"
 
+# OKP_EMBEDDING_MODEL_SRC specifies the directory within the vector DB container
+# image where the OKP embedding model must reside.
+OKP_EMBEDDING_MODEL_SRC="/rag/okp_embeddings_model"
+
 # OGX_CONFIG_FILE_NAME is the name of the OGX config file associated with a
 # single vector database.
 OGX_CONFIG_FILE_NAME="llama-stack.yaml"
@@ -134,13 +148,18 @@ parse_arguments_and_init() {
                 OCP_VERSION="$2"
                 shift 2
                 ;;
+            --enable-okp)
+                ENABLE_OKP="true"
+                shift 1
+                ;;
             -h|--help)
-                echo "Usage: $0 --vector-db-path PATH --enable-ocp-rag BOOL --ocp-version VERSION"
+                echo "Usage: $0 --vector-db-path PATH --enable-ocp-rag BOOL --ocp-version VERSION [--enable-okp]"
                 echo ""
                 echo "Arguments:"
                 echo "  --vector-db-path     Target path for vector DB data collection"
                 echo "  --enable-ocp-rag     Enable OCP RAG collection (true/false)"
                 echo "  --ocp-version        OCP version to collect (e.g., 4.16)"
+                echo "  --enable-okp         Enable OKP embedding model collection (default: disabled)"
                 echo "  -h, --help           Show this help message"
                 exit 0
                 ;;
@@ -246,6 +265,24 @@ collect_embeddings_model() {
     echo "Discovered and collected embeddings model data from ${EMBEDDINGS_MODEL_DIR}"
 }
 
+collect_okp_embeddings_model() {
+    if [ "${ENABLE_OKP}" != "true" ]; then
+        echo "Collecting of OKP embedding model is DISABLED => Skipping"
+        return
+    fi
+
+    if [ ! -d "${OKP_EMBEDDING_MODEL_SRC}" ]; then
+        echo "ERROR: OKP embedding model dir not found under ${OKP_EMBEDDING_MODEL_SRC}."
+        exit 1
+    fi
+
+    echo "Collecting OKP embedding model ..."
+    rm -rf "${VECTOR_DB_VOLUME_MOUNT_PATH}/okp_embeddings_model"
+    mkdir -p "${VECTOR_DB_VOLUME_MOUNT_PATH}/okp_embeddings_model"
+    cp -rL "${OKP_EMBEDDING_MODEL_SRC}/." "${VECTOR_DB_VOLUME_MOUNT_PATH}/okp_embeddings_model"
+    echo "Discovered and collected OKP embedding model from ${OKP_EMBEDDING_MODEL_SRC}"
+}
+
 main() {
     # NOTE: parse_arguments_and_init must be called first to ensure all global
     # variables are initialized before proceeding.
@@ -253,6 +290,7 @@ main() {
     collect_vector_db_data
     collect_ocp_vector_db_data
     collect_embeddings_model
+    collect_okp_embeddings_model
 }
 
 main "$@"

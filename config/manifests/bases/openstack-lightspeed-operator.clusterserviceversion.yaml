@@ -171,6 +171,6 @@ spec:
   relatedImages:
   - image: quay.io/openstack-lightspeed/operator:latest
     name: operator
-  - image: quay.io/openstack-lightspeed/rag-content:os-docs-2025.2
+  - image: quay.io/openstack-lightspeed/rag-content:os-docs-2026.1-ogx
     name: rag-content
   version: 0.0.0

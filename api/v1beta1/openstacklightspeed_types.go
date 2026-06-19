@@ -25,11 +25,8 @@ import (
 )
 
 const (
-	// TODO(lpiwowar): Replace this with a stable (non-alpha) image version once
-	// the automated pipeline for building OGX-compatible vector database images
-	// is ready.
 	// OpenStackLightspeedContainerImage is the fall-back container image for OpenStackLightspeed
-	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:alpha-ogx-os-docs-2025.2"
+	OpenStackLightspeedContainerImage = "quay.io/openstack-lightspeed/rag-content:os-docs-2026.1-ogx"
 
 	// LCoreContainerImage is the fall-back container image for LCore
 	LCoreContainerImage = "quay.io/lightspeed-core/lightspeed-stack:dev-latest"

@@ -74,7 +74,7 @@ spec:
             # the automated pipeline for building OGX-compatible vector database images
             # is ready.
           - name: RELATED_IMAGE_OPENSTACK_LIGHTSPEED_IMAGE_URL_DEFAULT
-            value: quay.io/openstack-lightspeed/rag-content:alpha-ogx-os-docs-2025.2
+            value: quay.io/openstack-lightspeed/rag-content:os-docs-2026.1-ogx
           - name: RELATED_IMAGE_LCORE_IMAGE_URL_DEFAULT
             value: quay.io/lightspeed-core/lightspeed-stack:dev-latest
           - name: RELATED_IMAGE_EXPORTER_IMAGE_URL_DEFAULT
