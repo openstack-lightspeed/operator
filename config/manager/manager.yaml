@@ -83,6 +83,10 @@ spec:
             value: registry.redhat.io/rhel9/postgresql-16:latest
           - name: RELATED_IMAGE_OKP_IMAGE_URL_DEFAULT
             value: registry.redhat.io/offline-knowledge-portal/rhokp-rhel9:latest
+          - name: RELATED_IMAGE_CONSOLE_IMAGE_URL_DEFAULT
+            value: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-rhel9:1.0.12
+          - name: RELATED_IMAGE_CONSOLE_PF5_IMAGE_URL_DEFAULT
+            value: registry.redhat.io/openshift-lightspeed/lightspeed-console-plugin-pf5-rhel9:1.0.12
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
