@@ -245,12 +245,18 @@ func buildInitContainers(
 	containers = append(containers, corev1.Container{
 		Name:  "vector-database-collect",
 		Image: instance.Spec.RAGImage,
-		Command: []string{
-			"sh", VectorDBScriptsMountPath + "/" + VectorDBCollectScriptKey,
-			"--vector-db-path", VectorDBVolumeMountPath,
-			"--enable-ocp-rag", strconv.FormatBool(instance.Spec.EnableOCPRAG),
-			"--ocp-version", ocp_version,
-		},
+		Command: func() []string {
+			cmd := []string{
+				"sh", VectorDBScriptsMountPath + "/" + VectorDBCollectScriptKey,
+				"--vector-db-path", VectorDBVolumeMountPath,
+				"--enable-ocp-rag", strconv.FormatBool(instance.Spec.EnableOCPRAG),
+				"--ocp-version", ocp_version,
+			}
+			if isOKPEnabled(instance) {
+				cmd = append(cmd, "--enable-okp")
+			}
+			return cmd
+		}(),
 		SecurityContext: securityContext,
 		Resources:       resourceRequirements,
 		VolumeMounts: []corev1.VolumeMount{
@@ -569,13 +575,6 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "RH_SERVER_OKP",
 			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
-		})
-		// FIXME(lucasagomes): Llama-Stack expects HF_HOME to be set when OKP is enabled because it uses the
-		// Hugging Face Hub client to fetch the embedding model for OKP. Ideally we would include the model it
-		// downloads in the container image to avoid this.
-		envVars = append(envVars, corev1.EnvVar{
-			Name:  "HF_HOME",
-			Value: "/tmp/huggingface",
 		})
 	}
 

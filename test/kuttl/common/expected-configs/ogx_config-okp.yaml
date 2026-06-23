@@ -88,7 +88,7 @@ providers:
       collection_name: ${env.SOLR_COLLECTION:=portal-rag}
       content_field: ${env.SOLR_CONTENT_FIELD:=chunk}
       embedding_dimension: ${env.SOLR_EMBEDDING_DIM:=384}
-      embedding_model: ${env.SOLR_EMBEDDING_MODEL:=sentence-transformers/ibm-granite/granite-embedding-30m-english}
+      embedding_model: sentence-transformers//vector-db-discovered-values/okp_embeddings_model
       persistence:
         backend: kv_default
         namespace: portal-rag
@@ -100,7 +100,7 @@ providers:
       persistence:
         namespace: vector_io::faiss
         backend: kv_rag_UUID_os_product_docs
-    provider_id: os-docs-2025.2
+    provider_id: os-docs-2026.1-ogx
     provider_type: inline::faiss
 registered_resources:
   models:
@@ -115,7 +115,7 @@ registered_resources:
     model_id: solr_embedding
     model_type: embedding
     provider_id: sentence-transformers
-    provider_model_id: ${env.SOLR_EMBEDDING_MODEL:=ibm-granite/granite-embedding-30m-english}
+    provider_model_id: /vector-db-discovered-values/okp_embeddings_model
   - metadata:
       embedding_dimension: 768
     model_id: sentence-transformers/all-mpnet-base-v2
@@ -127,12 +127,12 @@ registered_resources:
     toolgroup_id: builtin::rag
   vector_stores:
   - embedding_dimension: 384
-    embedding_model: ${env.SOLR_EMBEDDING_MODEL:=sentence-transformers/ibm-granite/granite-embedding-30m-english}
+    embedding_model: sentence-transformers//vector-db-discovered-values/okp_embeddings_model
     provider_id: okp_solr
     vector_store_id: portal-rag
   - embedding_dimension: 768
     embedding_model: sentence-transformers/${env.VECTOR_DB_DATA_PATH}/UUID/embeddings_model
-    provider_id: os-docs-2025.2
+    provider_id: os-docs-2026.1-ogx
     vector_store_id: vs_UUID
 scoring_fns: []
 server:

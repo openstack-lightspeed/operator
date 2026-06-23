@@ -257,7 +257,7 @@ func buildOKPVectorIOProvider(instance *apiv1beta1.OpenStackLightspeed) map[stri
 			"content_field":       "${env.SOLR_CONTENT_FIELD:=chunk}",
 			"vector_field":        "${env.SOLR_VECTOR_FIELD:=chunk_vector}",
 			"embedding_dimension": "${env.SOLR_EMBEDDING_DIM:=384}",
-			"embedding_model":     "${env.SOLR_EMBEDDING_MODEL:=sentence-transformers/ibm-granite/granite-embedding-30m-english}",
+			"embedding_model":     "sentence-transformers/" + OKPEmbeddingModelMountPath,
 			"persistence": map[string]interface{}{
 				"backend":   "kv_default",
 				"namespace": "portal-rag",
@@ -366,7 +366,7 @@ func buildLlamaStackModels(_ *common_helper.Helper, instance *apiv1beta1.OpenSta
 			"model_id":          "solr_embedding",
 			"model_type":        "embedding",
 			"provider_id":       "sentence-transformers",
-			"provider_model_id": "${env.SOLR_EMBEDDING_MODEL:=ibm-granite/granite-embedding-30m-english}",
+			"provider_model_id": OKPEmbeddingModelMountPath,
 			"metadata": map[string]interface{}{
 				"embedding_dimension": 384,
 			},
@@ -383,7 +383,7 @@ func buildLlamaStackVectorStores(_ *common_helper.Helper, instance *apiv1beta1.O
 			"vector_store_id":     "portal-rag",
 			"provider_id":         "okp_solr",
 			"embedding_dimension": 384,
-			"embedding_model":     "${env.SOLR_EMBEDDING_MODEL:=sentence-transformers/ibm-granite/granite-embedding-30m-english}",
+			"embedding_model":     "sentence-transformers/" + OKPEmbeddingModelMountPath,
 		})
 	}
 	return stores

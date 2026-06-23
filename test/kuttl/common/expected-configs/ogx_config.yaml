@@ -76,7 +76,7 @@ providers:
       persistence:
         namespace: vector_io::faiss
         backend: kv_rag_UUID_os_product_docs
-    provider_id: os-docs-2025.2
+    provider_id: os-docs-2026.1-ogx
     provider_type: inline::faiss
 registered_resources:
   models:
@@ -98,7 +98,7 @@ registered_resources:
   vector_stores:
   - embedding_dimension: 768
     embedding_model: sentence-transformers/${env.VECTOR_DB_DATA_PATH}/UUID/embeddings_model
-    provider_id: os-docs-2025.2
+    provider_id: os-docs-2026.1-ogx
     vector_store_id: vs_UUID
 scoring_fns: []
 server:

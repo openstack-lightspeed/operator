@@ -134,6 +134,11 @@ const (
 	// init container responsible for assembling the final Lightspeed Stack config.
 	VectorDBVolumeLightspeedStackConfigPath = VectorDBVolumeMountPath + "/lightspeed-stack.yaml"
 
+	// OKPEmbeddingModelMountPath specifies the path within the VectorDBVolumeName
+	// volume where the OKP embedding model is stored after being extracted from the
+	// rag-content image by the vector-database-collect init container.
+	OKPEmbeddingModelMountPath = VectorDBVolumeMountPath + "/okp_embeddings_model"
+
 	// OGXConfigInitContainerMountPath specifies the path where the operator-generated
 	// OGX config file is mounted in the init container responsible for assembling
 	// the final OGX configuration, which includes information about RAG.

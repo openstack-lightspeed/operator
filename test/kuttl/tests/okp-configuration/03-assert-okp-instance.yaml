@@ -80,8 +80,6 @@ spec:
               value: /vector-db-discovered-values
             - name: RH_SERVER_OKP
               value: http://lightspeed-okp-server.openstack-lightspeed.svc:8080
-            - name: HF_HOME
-              value: /tmp/huggingface
         - name: lightspeed-service-api
           env:
             - name: LIGHTSPEED_STACK_LOG_LEVEL

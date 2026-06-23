@@ -6,5 +6,3 @@ reportGranularity: test
 namespace: openstack-lightspeed
 timeout: 1380
 parallel: 1
-suppress:
-  - events
