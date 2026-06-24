@@ -72,14 +72,38 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		Ports:        []corev1.ContainerPort{{Name: "llama-stack", ContainerPort: LlamaStackContainerPort}},
 		VolumeMounts: llamaStackMounts,
 		Env:          llamaEnvVars,
-		ReadinessProbe: &corev1.Probe{
+		StartupProbe: &corev1.Probe{
 			ProbeHandler: corev1.ProbeHandler{
-				TCPSocket: &corev1.TCPSocketAction{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: LlamaStackHealthPath,
 					Port: intstr.FromInt32(LlamaStackContainerPort),
 				},
 			},
-			InitialDelaySeconds: 5,
-			PeriodSeconds:       10,
+			PeriodSeconds:    LlamaStackProbePeriodSeconds,
+			TimeoutSeconds:   LlamaStackProbeTimeoutSeconds,
+			FailureThreshold: LlamaStackStartupProbeFailureThreshold,
+		},
+		LivenessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: LlamaStackHealthPath,
+					Port: intstr.FromInt32(LlamaStackContainerPort),
+				},
+			},
+			PeriodSeconds:    LlamaStackProbePeriodSeconds,
+			TimeoutSeconds:   LlamaStackProbeTimeoutSeconds,
+			FailureThreshold: LlamaStackProbeFailureThreshold,
+		},
+		ReadinessProbe: &corev1.Probe{
+			ProbeHandler: corev1.ProbeHandler{
+				HTTPGet: &corev1.HTTPGetAction{
+					Path: LlamaStackHealthPath,
+					Port: intstr.FromInt32(LlamaStackContainerPort),
+				},
+			},
+			PeriodSeconds:    LlamaStackProbePeriodSeconds,
+			TimeoutSeconds:   LlamaStackProbeTimeoutSeconds,
+			FailureThreshold: LlamaStackProbeFailureThreshold,
 		},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{

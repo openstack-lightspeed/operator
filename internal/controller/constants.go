@@ -76,6 +76,14 @@ const (
 	LCoreConfigMountPath     = "/app-root/lightspeed-stack.yaml"
 	LCoreUserDataMountPath   = "/tmp/data"
 	ForceReloadAnnotationKey = "ols.openshift.io/force-reload"
+	// Health probe settings for the llama-stack/OGX container.
+	// The startup probe allows up to 30 failures (300s) for the slow initialization,
+	// while liveness and readiness probes use a tighter threshold of 3 failures.
+	LlamaStackHealthPath                   = "/v1/health"
+	LlamaStackProbePeriodSeconds           = int32(10)
+	LlamaStackProbeTimeoutSeconds          = int32(5)
+	LlamaStackStartupProbeFailureThreshold = int32(30)
+	LlamaStackProbeFailureThreshold        = int32(3)
 
 	// Data Exporter
 	ExporterConfigVolumeName       = "exporter-config"
