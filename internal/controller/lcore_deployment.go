@@ -555,6 +555,19 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 	// Postgres password for ${env.POSTGRES_PASSWORD} substitution in llama-stack config
 	envVars = append(envVars, buildPostgresPasswordEnvVar())
 
+	// PostgreSQL SSL configuration for OGX (llama-stack).
+	// OGX's PostgresSqlStoreConfig does not support ssl_mode/ca_cert_path fields yet
+	// (ogx-ai/ogx#5978), so we configure asyncpg via standard libpq environment
+	// variables to enforce TLS with full certificate verification.
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "PGSSLMODE",
+		Value: PostgresDefaultSSLMode,
+	})
+	envVars = append(envVars, corev1.EnvVar{
+		Name:  "PGSSLROOTCERT",
+		Value: CABundleMountPath,
+	})
+
 	// Logging configuration - set both for compatibility with llama-stack and OGX
 	ogxLogLevel := getOGXLogLevel(instance)
 	envVars = append(envVars, corev1.EnvVar{
