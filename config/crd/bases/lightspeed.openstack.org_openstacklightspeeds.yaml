@@ -103,12 +103,10 @@ spec:
                 description: Type of the provider serving the LLM
                 enum:
                 - azure_openai
-                - bam
                 - openai
                 - watsonx
                 - rhoai_vllm
                 - rhelai_vllm
-                - fake_provider
                 - gemini
                 type: string
               llmProjectID:

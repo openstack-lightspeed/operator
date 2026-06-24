@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	common_helper "github.com/openstack-k8s-operators/lib-common/modules/common/helper"
 	apiv1beta1 "github.com/openstack-lightspeed/operator/api/v1beta1"
@@ -122,17 +123,17 @@ func buildLlamaStackInferenceProviders(_ *common_helper.Helper, _ context.Contex
 
 		// Map provider types to Llama Stack provider types
 		switch provider.Type {
-		case "openai", "gemini", "rhoai_vllm", "rhelai_vllm":
+		case OpenAIProviderName, GeminiProviderName, RHOAIVLLMProviderName, RHELAIVLLMProviderName:
 			config := map[string]interface{}{}
 			// Determine the appropriate Llama Stack provider type:
 			//  - OpenAI uses remote::openai
 			//  - vLLM uses remote::vllm
 			var apiKeyField string
 			switch provider.Type {
-			case "openai":
+			case OpenAIProviderName:
 				providerConfig["provider_type"] = "remote::openai"
 				apiKeyField = "api_key"
-			case "gemini":
+			case GeminiProviderName:
 				providerConfig["provider_type"] = "remote::gemini"
 				apiKeyField = "api_key"
 			default:
@@ -149,7 +150,7 @@ func buildLlamaStackInferenceProviders(_ *common_helper.Helper, _ context.Contex
 
 			providerConfig["config"] = config
 
-		case "azure_openai":
+		case AzureOpenAIProviderName:
 			providerConfig["provider_type"] = "remote::azure"
 			config := map[string]interface{}{}
 
@@ -170,18 +171,34 @@ func buildLlamaStackInferenceProviders(_ *common_helper.Helper, _ context.Contex
 				config["api_version"] = provider.APIVersion
 			}
 			if provider.URL != "" {
-				config["api_base"] = provider.URL
+				config["base_url"] = provider.URL
 			}
 			providerConfig["config"] = config
 
-		case "watsonx", "bam":
-			// These providers are not supported by Llama Stack
-			// They are handled directly by lightspeed-stack (LCS), not Llama Stack
-			return nil, fmt.Errorf("provider type '%s' (provider '%s') is not currently supported by Llama Stack. Supported types: openai, gemini, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+		case WatsonXProviderName:
+			providerConfig["provider_type"] = "remote::watsonx"
+
+			config := map[string]interface{}{}
+			config["base_url"] = provider.URL
+			config["api_key"] = fmt.Sprintf("${env.%s_API_KEY}", envVarName)
+
+			if provider.WatsonProjectID != "" {
+				config["project_id"] = provider.WatsonProjectID
+			}
+
+			providerConfig["config"] = config
 
 		default:
-			// Unknown provider type
-			return nil, fmt.Errorf("unknown provider type '%s' (provider '%s'). Supported types: openai, gemini, azure_openai, rhoai_vllm, rhelai_vllm", provider.Type, provider.Name)
+			supportedProviders := []string{
+				OpenAIProviderName, GeminiProviderName, RHOAIVLLMProviderName, RHELAIVLLMProviderName,
+				AzureOpenAIProviderName, WatsonXProviderName,
+			}
+			return nil, fmt.Errorf(
+				"unknown provider type '%s' (provider '%s'). Supported types: %s",
+				provider.Type,
+				provider.Name,
+				strings.Join(supportedProviders, ","),
+			)
 		}
 
 		providers = append(providers, providerConfig)
