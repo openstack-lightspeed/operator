@@ -1,0 +1,50 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+commands:
+  - script: |
+      #!/bin/bash
+      set -euo pipefail
+
+      echo "Waiting for AC CR to be deleted..."
+      for i in $(seq 1 60); do
+        if ! oc get keystoneapplicationcredentials.keystone.openstack.org lightspeed \
+               -n openstack 2>/dev/null; then
+          echo "AC CR deleted"
+          break
+        fi
+        if [ "$i" -eq 60 ]; then
+          echo "ERROR: AC CR still exists after 120s"
+          exit 1
+        fi
+        sleep 2
+      done
+
+      echo "Waiting for password secret to be deleted..."
+      for i in $(seq 1 30); do
+        if ! oc get secret lightspeed-password -n openstack 2>/dev/null; then
+          echo "Password secret deleted"
+          break
+        fi
+        if [ "$i" -eq 30 ]; then
+          echo "ERROR: Password secret still exists after 60s"
+          exit 1
+        fi
+        sleep 2
+      done
+
+      # Verify finalizer removed from AC secret
+      if oc get secret ac-lightspeed-test-secret -n openstack 2>/dev/null; then
+        FINALIZERS=$(oc get secret ac-lightspeed-test-secret -n openstack \
+          -o jsonpath='{.metadata.finalizers}' 2>/dev/null || true)
+        if echo "$FINALIZERS" | grep -q "openstack.org/lightspeed-ac-consumer"; then
+          echo "ERROR: AC secret still has lightspeed-ac-consumer finalizer"
+          exit 1
+        fi
+        echo "AC secret finalizer removed"
+      else
+        echo "AC secret already deleted (OK)"
+      fi
+
+      echo "AC cleanup verified"
+    timeout: 180

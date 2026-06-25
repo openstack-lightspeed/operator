@@ -1,0 +1,16 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      #!/bin/bash
+      set -euo pipefail
+      oc apply -f ../../common/mock-openstack/oscp-crd.yaml
+      oc apply -f ../../common/mock-openstack/kac-crd.yaml
+
+      echo "Waiting for CRDs to be established..."
+      oc wait --for=condition=Established \
+        crd/openstackcontrolplanes.core.openstack.org \
+        crd/keystoneapplicationcredentials.keystone.openstack.org \
+        --timeout=60s
+    timeout: 120

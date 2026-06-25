@@ -6,12 +6,40 @@ metadata:
 rules:
 - apiGroups:
   - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
   resourceNames:
   - pull-secret
   resources:
   - secrets
   verbs:
   - get
+- apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - get
+  - list
+  - watch
 - apiGroups:
   - config.openshift.io
   resources:
@@ -32,6 +60,32 @@ rules:
   - patch
   - update
   - watch
+- apiGroups:
+  - core.openstack.org
+  resources:
+  - openstackcontrolplanes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - keystone.openstack.org
+  resources:
+  - keystoneapplicationcredentials
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - keystone.openstack.org
+  resources:
+  - keystoneapplicationcredentials/status
+  verbs:
+  - get
 - apiGroups:
   - lightspeed.openstack.org
   resources:

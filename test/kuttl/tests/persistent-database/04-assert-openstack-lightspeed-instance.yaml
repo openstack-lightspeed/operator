@@ -48,6 +48,8 @@ status:
       status: "True"
       reason: Ready
       message: OCP RAG is disabled
+    - type: OpenStackLightspeedMCPServerReady
+      status: "True"
     - type: OpenStackLightspeedReady
       status: "True"
       reason: Ready

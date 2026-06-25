@@ -37,6 +37,8 @@ import (
 // buildLCorePodTemplateSpec builds the pod template spec for the LCore deployment.
 // This function is used by CreateOrPatch to generate the desired pod spec.
 func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) (corev1.PodTemplateSpec, error) {
+	devConfig := devConfigFromContext(ctx)
+
 	// Build shared volumes
 	volumes := []corev1.Volume{
 		buildOGXConfigVolume(VolumeDefaultMode),
@@ -58,7 +60,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	if err != nil {
 		return corev1.PodTemplateSpec{}, fmt.Errorf("failed to build llama-stack env vars: %w", err)
 	}
-	lsEnvVars := buildLightspeedStackEnvVars(instance)
+	lsEnvVars := buildLightspeedStackEnvVars(instance, devConfig)
 
 	// Llama Stack container mounts: its config + shared + cache + vector_store_db data
 	llamaStackMounts := []corev1.VolumeMount{}
@@ -181,6 +183,29 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		containers = append(containers, exporterContainer)
 	}
 
+	// MCP sidecar (only when rhos_mcps feature flag is enabled)
+	if isRHOSMCPEnabled(devConfig) {
+		mcpMounts := []corev1.VolumeMount{}
+		addMCPVolumesAndMounts(&volumes, &mcpMounts)
+
+		mcpContainer := corev1.Container{
+			Name:         "rhos-mcp",
+			Image:        apiv1beta1.OpenStackLightspeedDefaultValues.MCPServerImageURL,
+			VolumeMounts: mcpMounts,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("200Mi"),
+				},
+			},
+			ImagePullPolicy: corev1.PullIfNotPresent,
+		}
+		containers = append(containers, mcpContainer)
+	}
+
 	// Build configmap resource version annotations for change detection
 	annotations, err := buildConfigMapAnnotations(h, ctx)
 	if err != nil {
@@ -244,7 +269,7 @@ func buildInitContainers(
 	var containers []corev1.Container
 	containers = append(containers, corev1.Container{
 		Name:  "vector-database-collect",
-		Image: instance.Spec.RAGImage,
+		Image: instance.Spec.Images.RAGImageURL,
 		Command: func() []string {
 			cmd := []string{
 				"sh", VectorDBScriptsMountPath + "/" + VectorDBCollectScriptKey,
@@ -252,7 +277,7 @@ func buildInitContainers(
 				"--enable-ocp-rag", strconv.FormatBool(instance.Spec.EnableOCPRAG),
 				"--ocp-version", ocp_version,
 			}
-			if isOKPEnabled(instance) {
+			if isOKPEnabled(devConfigFromContext(ctx)) {
 				cmd = append(cmd, "--enable-okp")
 			}
 			return cmd
@@ -278,8 +303,7 @@ func buildInitContainers(
 		"--ogx-config-path", OGXConfigInitContainerMountPath,
 		"--lightspeed-stack-path", LightspeedStackInitContainerMountPath,
 	}
-	devConfig, _ := parseDevConfig(instance)
-	if devConfig.OKPRagOnly {
+	if devConfigFromContext(ctx).OKPRagOnly {
 		configBuildCmd = append(configBuildCmd, "--disable-rag-entries")
 	}
 
@@ -426,6 +450,58 @@ func addDataCollectorVolumes(volumes *[]corev1.Volume, volumeDefaultMode int32) 
 			},
 		},
 	})
+}
+
+// addMCPVolumesAndMounts adds MCP sidecar volumes and mounts.
+func addMCPVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount) {
+	*volumes = append(*volumes,
+		corev1.Volume{
+			Name: SecureYAMLSecretName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: SecureYAMLSecretName,
+					Optional:   toPtr(true),
+					Items:      []corev1.KeyToPath{{Key: "secure.yaml", Path: "secure.yaml"}},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: CloudsYAMLConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: CloudsYAMLConfigMapName},
+					Optional:             toPtr(true),
+					Items:                []corev1.KeyToPath{{Key: "clouds.yaml", Path: "clouds.yaml"}},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: CombinedCABundleSecretName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: CombinedCABundleSecretName,
+					Optional:   toPtr(true),
+					Items:      []corev1.KeyToPath{{Key: "tls-ca-bundle.pem", Path: "tls-ca-bundle.pem"}},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: MCPConfigYAMLConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: MCPConfigYAMLConfigMapName},
+					Items:                []corev1.KeyToPath{{Key: "config.yaml", Path: "config.yaml"}},
+				},
+			},
+		},
+	)
+
+	*mounts = append(*mounts,
+		corev1.VolumeMount{Name: SecureYAMLSecretName, MountPath: "/app/secure.yaml", SubPath: "secure.yaml"},
+		corev1.VolumeMount{Name: CloudsYAMLConfigMapName, MountPath: "/app/clouds.yaml", SubPath: "clouds.yaml"},
+		corev1.VolumeMount{Name: CombinedCABundleSecretName, MountPath: "/app/tls-ca-bundle.pem", SubPath: "tls-ca-bundle.pem", ReadOnly: true},
+		corev1.VolumeMount{Name: MCPConfigYAMLConfigMapName, MountPath: "/app/config.yaml", SubPath: "config.yaml"},
+	)
 }
 
 // addCABundleVolumesAndMounts adds the CA bundle volume and mount.
@@ -584,7 +660,7 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 		Value: VectorDBVolumeMountPath,
 	})
 
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfigFromContext(ctx)) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "RH_SERVER_OKP",
 			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
@@ -610,7 +686,7 @@ func buildPostgresPasswordEnvVar() corev1.EnvVar {
 }
 
 // buildLightspeedStackEnvVars builds environment variables for the lightspeed-stack container.
-func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []corev1.EnvVar {
+func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed, devConfig apiv1beta1.DevSpec) []corev1.EnvVar {
 	envVars := []corev1.EnvVar{
 		{
 			Name:  "LIGHTSPEED_STACK_LOG_LEVEL",
@@ -618,7 +694,7 @@ func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []cor
 		},
 		buildPostgresPasswordEnvVar(),
 	}
-	if isOKPEnabled(instance) {
+	if isOKPEnabled(devConfig) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "RH_SERVER_OKP",
 			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
@@ -715,6 +791,42 @@ func buildConfigMapAnnotations(h *common_helper.Helper, ctx context.Context) (ma
 		}
 	} else {
 		annotations[CABundleConfigMapVersionAnnotation] = caBundleVersion
+	}
+
+	mcpVersion, err := getConfigMapResourceVersion(ctx, h, MCPConfigYAMLConfigMapName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get MCP config configmap resource version: %w", err)
+		}
+	} else {
+		annotations[MCPConfigMapResourceVersionAnnotation] = mcpVersion
+	}
+
+	cloudsVersion, err := getConfigMapResourceVersion(ctx, h, CloudsYAMLConfigMapName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get clouds.yaml configmap resource version: %w", err)
+		}
+	} else {
+		annotations[CloudsYAMLConfigMapVersionAnnotation] = cloudsVersion
+	}
+
+	secureVersion, err := getSecretResourceVersion(ctx, h, SecureYAMLSecretName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get secure.yaml secret resource version: %w", err)
+		}
+	} else {
+		annotations[SecureYAMLSecretVersionAnnotation] = secureVersion
+	}
+
+	caBundleSecretVersion, err := getSecretResourceVersion(ctx, h, CombinedCABundleSecretName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get CA bundle secret resource version: %w", err)
+		}
+	} else {
+		annotations[CombinedCABundleSecretVersionAnnotation] = caBundleSecretVersion
 	}
 
 	return annotations, nil

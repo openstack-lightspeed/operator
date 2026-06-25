@@ -1,0 +1,15 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestStep
+commands:
+  - script: |
+      #!/bin/bash
+      set -euo pipefail
+      oc delete openstackcontrolplane openstack-galera-network-isolation -n openstack --ignore-not-found=true
+      oc delete pod mock-keystone-server -n openstack --ignore-not-found=true
+      oc delete svc mock-keystone-server -n openstack --ignore-not-found=true
+      oc delete configmap mock-keystone-code openstack-config-mock -n openstack --ignore-not-found=true
+      oc delete secret openstack-config-secret-mock combined-ca-bundle-mock ac-lightspeed-test-secret -n openstack --ignore-not-found=true
+      oc delete namespace openstack --ignore-not-found=true --timeout=60s
+      oc delete crd openstackcontrolplanes.core.openstack.org keystoneapplicationcredentials.keystone.openstack.org --ignore-not-found=true
+    timeout: 120

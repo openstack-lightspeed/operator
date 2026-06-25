@@ -1,0 +1,67 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+commands:
+  - script: |
+      #!/bin/bash
+      set -euo pipefail
+
+      echo "Waiting for password secret to be created..."
+      for i in $(seq 1 60); do
+        if oc get secret lightspeed-password -n openstack 2>/dev/null; then
+          echo "Password secret found"
+          break
+        fi
+        if [ "$i" -eq 60 ]; then
+          echo "ERROR: Password secret not created after 120s"
+          exit 1
+        fi
+        sleep 2
+      done
+
+      PW=$(oc get secret lightspeed-password -n openstack \
+        -o jsonpath='{.data.password}' | base64 -d)
+      if [ -z "$PW" ]; then
+        echo "ERROR: Password secret has no password key"
+        exit 1
+      fi
+      echo "Password secret has password key (length: ${#PW})"
+
+      echo "Waiting for AC CR to be created..."
+      for i in $(seq 1 60); do
+        if oc get keystoneapplicationcredentials.keystone.openstack.org lightspeed \
+             -n openstack 2>/dev/null; then
+          echo "AC CR found"
+          break
+        fi
+        if [ "$i" -eq 60 ]; then
+          echo "ERROR: AC CR not created after 120s"
+          exit 1
+        fi
+        sleep 2
+      done
+
+      # Verify AC CR spec
+      USERNAME=$(oc get keystoneapplicationcredentials.keystone.openstack.org lightspeed \
+        -n openstack -o jsonpath='{.spec.userName}')
+      if [ "$USERNAME" != "lightspeed" ]; then
+        echo "ERROR: AC CR userName is '$USERNAME', expected 'lightspeed'"
+        exit 1
+      fi
+
+      SECRET_REF=$(oc get keystoneapplicationcredentials.keystone.openstack.org lightspeed \
+        -n openstack -o jsonpath='{.spec.secret}')
+      if [ "$SECRET_REF" != "lightspeed-password" ]; then
+        echo "ERROR: AC CR secret is '$SECRET_REF', expected 'lightspeed-password'"
+        exit 1
+      fi
+
+      EDPM_SVC=$(oc get keystoneapplicationcredentials.keystone.openstack.org lightspeed \
+        -n openstack -o jsonpath='{.metadata.annotations.keystone\.openstack\.org/edpm-service}')
+      if [ "$EDPM_SVC" != "false" ]; then
+        echo "ERROR: AC CR edpm-service annotation is '$EDPM_SVC', expected 'false'"
+        exit 1
+      fi
+
+      echo "All AC resources verified"
+    timeout: 180

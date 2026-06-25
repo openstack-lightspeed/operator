@@ -34,7 +34,7 @@ import (
 // ReconcileOKPDeployment reconciles the OKP Deployment and Service.
 // When OKP is disabled, it cleans up existing resources.
 func ReconcileOKPDeployment(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
-	if !isOKPEnabled(instance) {
+	if !isOKPEnabled(devConfigFromContext(ctx)) {
 		return cleanupOKPResources(h, ctx)
 	}
 

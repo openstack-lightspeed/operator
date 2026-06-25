@@ -109,6 +109,24 @@ const (
 	ConsoleProxyAlias              = "ols"
 	ConsoleUINetworkPolicyName     = "lightspeed-console-plugin"
 
+	// OpenStack Control Plane
+	OpenStackControlPlaneGroup   = "core.openstack.org"
+	OpenStackControlPlaneVersion = "v1beta1"
+	OpenStackControlPlaneKind    = "OpenStackControlPlane"
+
+	// Keystone Application Credential
+	KeystoneApplicationCredentialGroup   = "keystone.openstack.org"
+	KeystoneApplicationCredentialVersion = "v1beta1"
+	KeystoneApplicationCredentialKind    = "KeystoneApplicationCredential"
+
+	// Lightspeed Service User
+	LightspeedServiceUserName    = "lightspeed"
+	LightspeedServiceUserDomain  = "default"
+	LightspeedPasswordSecretName = "lightspeed-password"
+	LightspeedPasswordSecretKey  = "password"
+	LightspeedACCRName           = "lightspeed"
+	LightspeedACFinalizerName    = "openstack.org/lightspeed-ac-consumer"
+
 	// Azure
 	AzureOpenAIType = "azure_openai"
 
@@ -195,6 +213,10 @@ const (
 	LlamaStackConfigMapResourceVersionAnnotation = "ols.openshift.io/llamastack-configmap-version"
 	LCoreConfigMapResourceVersionAnnotation      = "ols.openshift.io/lcore-configmap-version"
 	CABundleConfigMapVersionAnnotation           = "ols.openshift.io/ca-bundle-configmap-version"
+	MCPConfigMapResourceVersionAnnotation        = "ols.openshift.io/mcp-configmap-version"
+	CloudsYAMLConfigMapVersionAnnotation         = "ols.openshift.io/clouds-yaml-configmap-version"
+	SecureYAMLSecretVersionAnnotation            = "ols.openshift.io/secure-yaml-secret-version"
+	CombinedCABundleSecretVersionAnnotation      = "ols.openshift.io/combined-ca-bundle-secret-version"
 
 	// Volume Permissions
 	// These constants define file permissions for volumes mounted in containers.
