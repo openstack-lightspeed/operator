@@ -1,0 +1,17 @@
+---
+apiVersion: kuttl.dev/v1beta1
+kind: TestAssert
+timeout: 120
+commands:
+  - script: |
+      #!/bin/bash
+      set -euo pipefail
+      ! oc get pod mock-keystone-server -n openstack 2>/dev/null
+      ! oc get svc mock-keystone-server -n openstack 2>/dev/null
+      ! oc get configmap mock-keystone-code -n openstack 2>/dev/null
+      ! oc get configmap openstack-config-mock -n openstack 2>/dev/null
+      ! oc get secret openstack-config-secret-mock -n openstack 2>/dev/null
+      ! oc get secret combined-ca-bundle-mock -n openstack 2>/dev/null
+      ! oc get namespace openstack 2>/dev/null
+      ! oc get crd openstackcontrolplanes.core.openstack.org 2>/dev/null
+      ! oc get crd keystoneapplicationcredentials.keystone.openstack.org 2>/dev/null

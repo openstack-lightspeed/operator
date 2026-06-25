@@ -18,6 +18,7 @@ metadata:
 
 # Verify CA bundle ConfigMap still exists after update
 ---
+# Verify CA bundle ConfigMap still exists after update
 apiVersion: v1
 kind: ConfigMap
 metadata:

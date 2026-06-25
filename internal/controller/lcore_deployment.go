@@ -181,6 +181,33 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		containers = append(containers, exporterContainer)
 	}
 
+	// MCP sidecar (only when rhos_mcps feature flag is enabled)
+	rhosMCPEnabled, err := isRHOSMCPEnabled(instance)
+	if err != nil {
+		return corev1.PodTemplateSpec{}, fmt.Errorf("failed to parse dev config: %w", err)
+	}
+	if rhosMCPEnabled {
+		mcpMounts := []corev1.VolumeMount{}
+		addMCPVolumesAndMounts(&volumes, &mcpMounts)
+
+		mcpContainer := corev1.Container{
+			Name:         "rhos-mcp",
+			Image:        apiv1beta1.OpenStackLightspeedDefaultValues.MCPServerImageURL,
+			VolumeMounts: mcpMounts,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceCPU:    resource.MustParse("50m"),
+					corev1.ResourceMemory: resource.MustParse("64Mi"),
+				},
+				Limits: corev1.ResourceList{
+					corev1.ResourceMemory: resource.MustParse("200Mi"),
+				},
+			},
+			ImagePullPolicy: corev1.PullIfNotPresent,
+		}
+		containers = append(containers, mcpContainer)
+	}
+
 	// Build configmap resource version annotations for change detection
 	annotations, err := buildConfigMapAnnotations(h, ctx)
 	if err != nil {
@@ -426,6 +453,58 @@ func addDataCollectorVolumes(volumes *[]corev1.Volume, volumeDefaultMode int32) 
 			},
 		},
 	})
+}
+
+// addMCPVolumesAndMounts adds MCP sidecar volumes and mounts.
+func addMCPVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount) {
+	*volumes = append(*volumes,
+		corev1.Volume{
+			Name: SecureYAMLSecretName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: SecureYAMLSecretName,
+					Optional:   toPtr(true),
+					Items:      []corev1.KeyToPath{{Key: "secure.yaml", Path: "secure.yaml"}},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: CloudsYAMLConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: CloudsYAMLConfigMapName},
+					Optional:             toPtr(true),
+					Items:                []corev1.KeyToPath{{Key: "clouds.yaml", Path: "clouds.yaml"}},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: CombinedCABundleSecretName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: CombinedCABundleSecretName,
+					Optional:   toPtr(true),
+					Items:      []corev1.KeyToPath{{Key: "tls-ca-bundle.pem", Path: "tls-ca-bundle.pem"}},
+				},
+			},
+		},
+		corev1.Volume{
+			Name: MCPConfigYAMLConfigMapName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: corev1.LocalObjectReference{Name: MCPConfigYAMLConfigMapName},
+					Items:                []corev1.KeyToPath{{Key: "config.yaml", Path: "config.yaml"}},
+				},
+			},
+		},
+	)
+
+	*mounts = append(*mounts,
+		corev1.VolumeMount{Name: SecureYAMLSecretName, MountPath: "/app/secure.yaml", SubPath: "secure.yaml"},
+		corev1.VolumeMount{Name: CloudsYAMLConfigMapName, MountPath: "/app/clouds.yaml", SubPath: "clouds.yaml"},
+		corev1.VolumeMount{Name: CombinedCABundleSecretName, MountPath: "/app/tls-ca-bundle.pem", SubPath: "tls-ca-bundle.pem", ReadOnly: true},
+		corev1.VolumeMount{Name: MCPConfigYAMLConfigMapName, MountPath: "/app/config.yaml", SubPath: "config.yaml"},
+	)
 }
 
 // addCABundleVolumesAndMounts adds the CA bundle volume and mount.
@@ -715,6 +794,42 @@ func buildConfigMapAnnotations(h *common_helper.Helper, ctx context.Context) (ma
 		}
 	} else {
 		annotations[CABundleConfigMapVersionAnnotation] = caBundleVersion
+	}
+
+	mcpVersion, err := getConfigMapResourceVersion(ctx, h, MCPConfigYAMLConfigMapName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get MCP config configmap resource version: %w", err)
+		}
+	} else {
+		annotations[MCPConfigMapResourceVersionAnnotation] = mcpVersion
+	}
+
+	cloudsVersion, err := getConfigMapResourceVersion(ctx, h, CloudsYAMLConfigMapName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get clouds.yaml configmap resource version: %w", err)
+		}
+	} else {
+		annotations[CloudsYAMLConfigMapVersionAnnotation] = cloudsVersion
+	}
+
+	secureVersion, err := getSecretResourceVersion(ctx, h, SecureYAMLSecretName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get secure.yaml secret resource version: %w", err)
+		}
+	} else {
+		annotations[SecureYAMLSecretVersionAnnotation] = secureVersion
+	}
+
+	caBundleSecretVersion, err := getSecretResourceVersion(ctx, h, CombinedCABundleSecretName, h.GetBeforeObject().GetNamespace())
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, fmt.Errorf("failed to get CA bundle secret resource version: %w", err)
+		}
+	} else {
+		annotations[CombinedCABundleSecretVersionAnnotation] = caBundleSecretVersion
 	}
 
 	return annotations, nil
