@@ -112,7 +112,8 @@ func buildLCoreUserDataCollectionConfig(_ *common_helper.Helper, instance *apiv1
 
 func buildLCoreAuthenticationConfig(_ *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
 	return map[string]interface{}{
-		"module": "k8s",
+		"module":                 "k8s",
+		"skip_for_health_probes": true,
 	}
 }
 

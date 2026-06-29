@@ -1,5 +1,6 @@
 authentication:
   module: k8s
+  skip_for_health_probes: true
 byok_rag:
 - rag_id: vs_UUID
   vector_db_id: vs_UUID

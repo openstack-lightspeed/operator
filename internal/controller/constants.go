@@ -85,6 +85,16 @@ const (
 	LlamaStackStartupProbeFailureThreshold = int32(30)
 	LlamaStackProbeFailureThreshold        = int32(3)
 
+	// Health probe settings for the lightspeed-stack container.
+	// The startup probe allows up to 30 failures (300s) for initialization,
+	// while liveness and readiness probes use a tighter threshold of 3 failures.
+	LightspeedStackLivenessPath                 = "/liveness"
+	LightspeedStackReadinessPath                = "/readiness"
+	LightspeedStackProbePeriodSeconds           = int32(10)
+	LightspeedStackProbeTimeoutSeconds          = int32(5)
+	LightspeedStackStartupProbeFailureThreshold = int32(30)
+	LightspeedStackProbeFailureThreshold        = int32(3)
+
 	// Data Exporter
 	ExporterConfigVolumeName       = "exporter-config"
 	ExporterConfigMountPath        = "/etc/config"
