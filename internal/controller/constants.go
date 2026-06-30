@@ -117,8 +117,14 @@ const (
 	ConsoleProxyAlias              = "ols"
 	ConsoleUINetworkPolicyName     = "lightspeed-console-plugin"
 
-	// Azure
-	AzureOpenAIType = "azure_openai"
+	// Provider name constants representing valid values for
+	// OpenStackLightpseed.Spec.LLMEndpointType (providers available to users)
+	RHELAIVLLMProviderName  = "rhelai_vllm"
+	RHOAIVLLMProviderName   = "rhoai_vllm"
+	GeminiProviderName      = "gemini"
+	AzureOpenAIProviderName = "azure_openai"
+	OpenAIProviderName      = "openai"
+	WatsonXProviderName     = "watsonx"
 
 	// EnvVarSuffixAPIKey is the environment variable suffix for API key credentials
 	EnvVarSuffixAPIKey = "_API_KEY"

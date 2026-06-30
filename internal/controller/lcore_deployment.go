@@ -488,7 +488,7 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 
 		envVarName := providerNameToEnvVarName(provider.Name)
 
-		if provider.Type == AzureOpenAIType {
+		if provider.Type == AzureOpenAIProviderName {
 			// Azure supports both API key and client credentials authentication.
 			// Read the secret to determine which fields are present.
 			secret := &corev1.Secret{}
@@ -565,7 +565,7 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 
 			// For vLLM providers, also set the URL environment variable
 			// The vLLM adapter checks for VLLM_URL as a fallback if URL is not in config
-			if provider.Type == "rhoai_vllm" || provider.Type == "rhelai_vllm" {
+			if provider.Type == RHOAIVLLMProviderName || provider.Type == RHELAIVLLMProviderName {
 				if provider.URL != "" {
 					envVars = append(envVars, corev1.EnvVar{
 						Name:  "VLLM_URL",

@@ -54,7 +54,7 @@ var _ = Describe("OpenStackLightspeed Controller", func() {
 					Spec: apiv1beta1.OpenStackLightspeedSpec{
 						OpenStackLightspeedCore: apiv1beta1.OpenStackLightspeedCore{
 							LLMEndpoint:     "https://example.com/llm",
-							LLMEndpointType: "openai",
+							LLMEndpointType: OpenAIProviderName,
 							ModelName:       "test-model",
 						},
 					},
