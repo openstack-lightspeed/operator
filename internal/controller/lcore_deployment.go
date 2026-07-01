@@ -147,6 +147,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 		Ports:          []corev1.ContainerPort{{Name: "https", ContainerPort: OpenStackLightspeedAppServerContainerPort}},
 		VolumeMounts:   lightspeedStackMounts,
 		Env:            lsEnvVars,
+		StartupProbe:   buildLightspeedStackStartupProbe(),
 		LivenessProbe:  buildLightspeedStackLivenessProbe(),
 		ReadinessProbe: buildLightspeedStackReadinessProbe(),
 		Resources: corev1.ResourceRequirements{
@@ -651,18 +652,35 @@ func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []cor
 	return envVars
 }
 
+// buildLightspeedStackStartupProbe returns the startup probe for the lightspeed-stack container.
+func buildLightspeedStackStartupProbe() *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   LightspeedStackReadinessPath,
+				Port:   intstr.FromInt32(OpenStackLightspeedAppServerContainerPort),
+				Scheme: corev1.URISchemeHTTPS,
+			},
+		},
+		PeriodSeconds:    LightspeedStackProbePeriodSeconds,
+		TimeoutSeconds:   LightspeedStackProbeTimeoutSeconds,
+		FailureThreshold: LightspeedStackStartupProbeFailureThreshold,
+	}
+}
+
 // buildLightspeedStackLivenessProbe returns the liveness probe for the lightspeed-stack container.
 func buildLightspeedStackLivenessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt32(OpenStackLightspeedAppServerContainerPort),
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   LightspeedStackLivenessPath,
+				Port:   intstr.FromInt32(OpenStackLightspeedAppServerContainerPort),
+				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
-		InitialDelaySeconds: 30,
-		PeriodSeconds:       10,
-		TimeoutSeconds:      5,
-		FailureThreshold:    3,
+		PeriodSeconds:    LightspeedStackProbePeriodSeconds,
+		TimeoutSeconds:   LightspeedStackProbeTimeoutSeconds,
+		FailureThreshold: LightspeedStackProbeFailureThreshold,
 	}
 }
 
@@ -670,14 +688,15 @@ func buildLightspeedStackLivenessProbe() *corev1.Probe {
 func buildLightspeedStackReadinessProbe() *corev1.Probe {
 	return &corev1.Probe{
 		ProbeHandler: corev1.ProbeHandler{
-			TCPSocket: &corev1.TCPSocketAction{
-				Port: intstr.FromInt32(OpenStackLightspeedAppServerContainerPort),
+			HTTPGet: &corev1.HTTPGetAction{
+				Path:   LightspeedStackReadinessPath,
+				Port:   intstr.FromInt32(OpenStackLightspeedAppServerContainerPort),
+				Scheme: corev1.URISchemeHTTPS,
 			},
 		},
-		InitialDelaySeconds: 30,
-		PeriodSeconds:       10,
-		TimeoutSeconds:      5,
-		FailureThreshold:    3,
+		PeriodSeconds:    LightspeedStackProbePeriodSeconds,
+		TimeoutSeconds:   LightspeedStackProbeTimeoutSeconds,
+		FailureThreshold: LightspeedStackProbeFailureThreshold,
 	}
 }
 
