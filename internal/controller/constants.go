@@ -67,6 +67,20 @@ const (
 	PostgresVarRunVolumeMountPath                = "/var/run/postgresql"
 	TmpVolumeName                                = "tmp-writable-volume"
 	TmpVolumeMountPath                           = "/tmp"
+	// Health probe settings for the PostgreSQL container.
+	// Startup probe allows up to 300s for initialization (e.g. WAL recovery).
+	// Liveness uses a longer period/timeout to avoid killing a busy-but-healthy instance.
+	// Readiness uses a shorter period to quickly pull the pod from traffic when not accepting connections.
+	PostgresStartupProbeInitialDelaySeconds = int32(5)
+	PostgresStartupProbePeriodSeconds       = int32(10)
+	PostgresStartupProbeTimeoutSeconds      = int32(5)
+	PostgresStartupProbeFailureThreshold    = int32(30)
+	PostgresLivenessProbePeriodSeconds      = int32(30)
+	PostgresLivenessProbeTimeoutSeconds     = int32(10)
+	PostgresLivenessProbeFailureThreshold   = int32(3)
+	PostgresReadinessProbePeriodSeconds     = int32(10)
+	PostgresReadinessProbeTimeoutSeconds    = int32(5)
+	PostgresReadinessProbeFailureThreshold  = int32(3)
 
 	// LCore specific
 	LlamaStackContainerPort  = int32(8321)

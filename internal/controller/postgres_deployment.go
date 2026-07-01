@@ -142,7 +142,10 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 						AllowPrivilegeEscalation: &[]bool{false}[0],
 						ReadOnlyRootFilesystem:   &[]bool{true}[0],
 					},
-					VolumeMounts: volumeMounts,
+					StartupProbe:   buildPostgresProbe(PostgresStartupProbePeriodSeconds, PostgresStartupProbeTimeoutSeconds, PostgresStartupProbeFailureThreshold, PostgresStartupProbeInitialDelaySeconds),
+					LivenessProbe:  buildPostgresProbe(PostgresLivenessProbePeriodSeconds, PostgresLivenessProbeTimeoutSeconds, PostgresLivenessProbeFailureThreshold, 0),
+					ReadinessProbe: buildPostgresProbe(PostgresReadinessProbePeriodSeconds, PostgresReadinessProbeTimeoutSeconds, PostgresReadinessProbeFailureThreshold, 0),
+					VolumeMounts:   volumeMounts,
 					Resources: corev1.ResourceRequirements{
 						Requests: corev1.ResourceList{
 							corev1.ResourceCPU:    resource.MustParse("30m"),
@@ -193,5 +196,19 @@ func buildPostgresPodTemplateSpec() corev1.PodTemplateSpec {
 			},
 			Volumes: volumes,
 		},
+	}
+}
+
+func buildPostgresProbe(period, timeout, failure, initialDelay int32) *corev1.Probe {
+	return &corev1.Probe{
+		ProbeHandler: corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{"pg_isready", "-U", PostgresDefaultUser, "-d", PostgresDefaultDbName},
+			},
+		},
+		InitialDelaySeconds: initialDelay,
+		PeriodSeconds:       period,
+		TimeoutSeconds:      timeout,
+		FailureThreshold:    failure,
 	}
 }
