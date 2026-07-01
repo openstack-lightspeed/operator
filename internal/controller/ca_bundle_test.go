@@ -480,7 +480,7 @@ func TestReconcileCABundle_MergesServiceCA(t *testing.T) {
 
 	resultCM := &corev1.ConfigMap{}
 	err = h.GetClient().Get(ctx, types.NamespacedName{
-		Name:      CABundleConfigMapName,
+		Name:      CABundleConfigMapName("test-instance"),
 		Namespace: "test-ns",
 	}, resultCM)
 	if err != nil {
@@ -620,7 +620,7 @@ func TestReconcileCABundle_DeduplicatesAcrossSources(t *testing.T) {
 
 	resultCM := &corev1.ConfigMap{}
 	err = h.GetClient().Get(ctx, types.NamespacedName{
-		Name:      CABundleConfigMapName,
+		Name:      CABundleConfigMapName("test-instance"),
 		Namespace: "test-ns",
 	}, resultCM)
 	if err != nil {

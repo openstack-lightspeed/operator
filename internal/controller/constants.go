@@ -26,15 +26,10 @@ const (
 	ResourceCreationTimeout = 60 * time.Second
 
 	// Application Server
-	OpenStackLightspeedAppServerServiceAccountName = "lightspeed-app-server"
-	OpenStackLightspeedAppServerSARRoleName        = OpenStackLightspeedAppServerServiceAccountName + "-sar-role"
-	OpenStackLightspeedAppServerSARRoleBindingName = OpenStackLightspeedAppServerSARRoleName + "-binding"
-	OpenStackLightspeedAppServerContainerPort      = 8443
-	OpenStackLightspeedAppServerServicePort        = 8443
-	OpenStackLightspeedAppServerServiceName        = "lightspeed-app-server"
-	OpenStackLightspeedAppServerNetworkPolicyName  = "lightspeed-app-server"
-	OpenStackLightspeedDefaultProvider             = "openstack-lightspeed-provider"
-	OpenStackLightspeedVectorDBPath                = "/rag/vector_db/os_product_docs"
+	OpenStackLightspeedAppServerContainerPort = 8443
+	OpenStackLightspeedAppServerServicePort   = 8443
+	OpenStackLightspeedDefaultProvider        = "openstack-lightspeed-provider"
+	OpenStackLightspeedVectorDBPath           = "/rag/vector_db/os_product_docs"
 
 	ServingCertSecretAnnotationKey = "service.beta.openshift.io/serving-cert-secret-name"
 
@@ -43,12 +38,6 @@ const (
 	MetricsReaderServiceAccountName            = "lightspeed-operator-metrics-reader"
 
 	// Postgres
-	PostgresDeploymentName                       = "lightspeed-postgres-server"
-	PostgresServiceName                          = "lightspeed-postgres-server"
-	PostgresSecretName                           = "lightspeed-postgres-secret"
-	PostgresBootstrapSecretName                  = "lightspeed-postgres-bootstrap"
-	PostgresConfigMapName                        = "lightspeed-postgres-conf"
-	PostgresNetworkPolicyName                    = "lightspeed-postgres-server"
 	PostgresServicePort                          = int32(5432)
 	PostgresDefaultUser                          = "postgres"
 	PostgresDefaultDbName                        = "postgres"
@@ -61,7 +50,6 @@ const (
 	PostgresConfigVolumeMountPath                = "/usr/share/pgsql/postgresql.conf.sample"
 	PostgresDataVolume                           = "postgres-data"
 	PostgresDataVolumeMountPath                  = "/var/lib/pgsql"
-	PostgresDataPVCName                          = "openstack-lightspeed-database"
 	PostgresDataPVCDefaultSize                   = "1Gi"
 	PostgresVarRunVolumeName                     = "lightspeed-postgres-var-run"
 	PostgresVarRunVolumeMountPath                = "/var/run/postgresql"
@@ -69,10 +57,7 @@ const (
 	TmpVolumeMountPath                           = "/tmp"
 
 	// LCore specific
-	LlamaStackContainerPort  = int32(8321)
-	LlamaStackConfigCmName   = "llama-stack-config"
-	LCoreConfigCmName        = "lightspeed-stack-config"
-	LCoreDeploymentName      = "lightspeed-stack-deployment"
+	LlamaStackContainerPort = int32(8321)
 	LCoreConfigMountPath     = "/app-root/lightspeed-stack.yaml"
 	LCoreUserDataMountPath   = "/tmp/data"
 	ForceReloadAnnotationKey = "ols.openshift.io/force-reload"
@@ -89,33 +74,23 @@ const (
 	ExporterConfigVolumeName       = "exporter-config"
 	ExporterConfigMountPath        = "/etc/config"
 	ExporterConfigFilename         = "config.yaml"
-	ExporterConfigCmName           = "lightspeed-exporter-config"
 	DataverseExporterContainerName = "lightspeed-to-dataverse-exporter"
 	UserDataVolumeName             = "ols-user-data"
 	RHOSOLightspeedOwnerIDLabel    = "openstack.org/lightspeed-owner-id"
 	ServiceIDRHOSO                 = "rhos-lightspeed"
 
 	// OKP (Offline Knowledge Portal)
-	OKPContainerName           = "okp"
-	OKPContainerPort           = int32(8080)
-	OKPDeploymentName          = "lightspeed-okp-server"
-	OKPServiceName             = "lightspeed-okp-server"
+	OKPContainerName = "okp"
+	OKPContainerPort = int32(8080)
 	OKPServicePort             = int32(8080)
 	OKPAccessKeySecretKey      = "access_key"
 	OKPDefaultChunkFilterQuery = "product:(*openstack* OR *openshift*)"
 	ExternalProvidersDir       = "/app-root/providers.d"
 
 	// Console Plugin
-	ConsoleUIConfigMapName         = "lightspeed-console-plugin"
-	ConsoleUIServiceCertSecretName = "lightspeed-console-plugin-cert"
-	ConsoleUIServiceName           = "lightspeed-console-plugin"
-	ConsoleUIDeploymentName        = "lightspeed-console-plugin"
-	ConsoleUIHTTPSPort             = int32(9443)
-	ConsoleUIPluginName            = "lightspeed-console-plugin"
-	ConsoleUIServiceAccountName    = "lightspeed-console-plugin"
-	ConsoleCRName                  = "cluster"
-	ConsoleProxyAlias              = "ols"
-	ConsoleUINetworkPolicyName     = "lightspeed-console-plugin"
+	ConsoleUIHTTPSPort = int32(9443)
+	ConsoleCRName      = "cluster"
+	ConsoleProxyAlias  = "ols"
 
 	// Provider name constants representing valid values for
 	// OpenStackLightpseed.Spec.LLMEndpointType (providers available to users)
@@ -180,9 +155,6 @@ const (
 	// configuration is stored.
 	LightspeedStackConfigCMKey = "lightspeed-stack.yaml"
 
-	// VectorDBScriptsConfigMapName is the name of the ConfigMap that contains the
-	// initialization scripts used by init containers to collect and build vector database data
-	VectorDBScriptsConfigMapName = "vector-db-scripts"
 
 	// VectorDBScriptsVolumeName is the name of the volume that mounts the ConfigMap containing
 	// vector database initialization scripts for use by init containers
@@ -216,12 +188,6 @@ const (
 	VolumeRestrictedMode = int32(0600)
 	VolumeExecutableMode = int32(0755)
 
-	// CABundleConfigMapName is the name of the ConfigMap that stores the
-	// CA certificate bundle. It aggregates certificates from three sources —
-	// operator system CAs, the OpenShift service serving CA (for in-cluster
-	// service-to-service TLS), and the OpenShift API server CA — along with
-	// any user-provided additional CAs.
-	CABundleConfigMapName = "openstack-lightspeed-ca-bundle"
 
 	// CABundleKey is the key within the CA bundle ConfigMap under which
 	// the PEM-encoded certificate data is stored.
@@ -254,17 +220,6 @@ const (
 	// inside the lightspeed-service-api container, used to serve HTTPS.
 	OpenStackLightspeedTLSKeyPath = OpenStackLightspeedAppCertsMountRoot + "/lightspeed-tls/tls.key"
 
-	// OpenStackLightspeedCertsSecretName is the name of the Secret auto-provisioned
-	// by the OpenShift service-ca operator when the lightspeed-app-server Service is
-	// annotated with service.beta.openshift.io/serving-cert-secret-name. Contains
-	// tls.crt and tls.key used by the lightspeed-service-api container to serve HTTPS.
-	OpenStackLightspeedCertsSecretName = "lightspeed-tls"
-
-	// PostgresCertsSecretName is the name of the Secret auto-provisioned by the
-	// OpenShift service-ca operator when the lightspeed-postgres-server Service is
-	// annotated with service.beta.openshift.io/serving-cert-secret-name. Contains
-	// tls.crt and tls.key used by the postgres container to serve TLS connections.
-	PostgresCertsSecretName = "lightspeed-postgres-certs"
 
 	// PostgresDefaultSSLMode is the sslmode used when connecting to PostgreSQL.
 	// "verify-full" requires a valid server certificate and checks
@@ -282,6 +237,108 @@ const (
 	// service.beta.openshift.io/serving-cert-secret-name annotation.
 	OpenShiftServiceCAConfigMap = "openshift-service-ca.crt"
 )
+
+// Resource name functions — each returns a name scoped to the CR instance so
+// multiple OpenStackLightspeed CRs can coexist in the same namespace.
+
+// Application Server
+func OpenStackLightspeedAppServerServiceAccountName(instanceName string) string {
+	return instanceName + "-app-server"
+}
+func OpenStackLightspeedAppServerSARRoleName(instanceName string) string {
+	return OpenStackLightspeedAppServerServiceAccountName(instanceName) + "-sar-role"
+}
+func OpenStackLightspeedAppServerSARRoleBindingName(instanceName string) string {
+	return OpenStackLightspeedAppServerSARRoleName(instanceName) + "-binding"
+}
+func OpenStackLightspeedAppServerServiceName(instanceName string) string {
+	return instanceName + "-app-server"
+}
+func OpenStackLightspeedAppServerNetworkPolicyName(instanceName string) string {
+	return instanceName + "-app-server"
+}
+func OpenStackLightspeedCertsSecretName(instanceName string) string {
+	return instanceName + "-tls"
+}
+
+// Postgres
+func PostgresDeploymentName(instanceName string) string {
+	return instanceName + "-postgres-server"
+}
+func PostgresServiceName(instanceName string) string {
+	return instanceName + "-postgres-server"
+}
+func PostgresSecretName(instanceName string) string {
+	return instanceName + "-postgres-secret"
+}
+func PostgresBootstrapSecretName(instanceName string) string {
+	return instanceName + "-postgres-bootstrap"
+}
+func PostgresConfigMapName(instanceName string) string {
+	return instanceName + "-postgres-conf"
+}
+func PostgresNetworkPolicyName(instanceName string) string {
+	return instanceName + "-postgres-server"
+}
+func PostgresDataPVCName(instanceName string) string {
+	return instanceName + "-database"
+}
+func PostgresCertsSecretName(instanceName string) string {
+	return instanceName + "-postgres-certs"
+}
+
+// LCore
+func LlamaStackConfigCmName(instanceName string) string {
+	return instanceName + "-llama-stack-config"
+}
+func LCoreConfigCmName(instanceName string) string {
+	return instanceName + "-stack-config"
+}
+func LCoreDeploymentName(instanceName string) string {
+	return instanceName + "-stack-deployment"
+}
+func ExporterConfigCmName(instanceName string) string {
+	return instanceName + "-exporter-config"
+}
+
+// OKP
+func OKPDeploymentName(instanceName string) string {
+	return instanceName + "-okp-server"
+}
+func OKPServiceName(instanceName string) string {
+	return instanceName + "-okp-server"
+}
+
+// Console Plugin
+func ConsoleUIConfigMapName(instanceName string) string {
+	return instanceName + "-console-plugin"
+}
+func ConsoleUIServiceCertSecretName(instanceName string) string {
+	return instanceName + "-console-plugin-cert"
+}
+func ConsoleUIServiceName(instanceName string) string {
+	return instanceName + "-console-plugin"
+}
+func ConsoleUIDeploymentName(instanceName string) string {
+	return instanceName + "-console-plugin"
+}
+func ConsoleUIPluginName(instanceName string) string {
+	return instanceName + "-console-plugin"
+}
+func ConsoleUIServiceAccountName(instanceName string) string {
+	return instanceName + "-console-plugin"
+}
+func ConsoleUINetworkPolicyName(instanceName string) string {
+	return instanceName + "-console-plugin"
+}
+
+// Other
+func CABundleConfigMapName(instanceName string) string {
+	return instanceName + "-ca-bundle"
+}
+func VectorDBScriptsConfigMapName(instanceName string) string {
+	return instanceName + "-vector-db-scripts"
+}
 
 // PostgreSQL Bootstrap Script - creates database, extensions, and schemas
 //

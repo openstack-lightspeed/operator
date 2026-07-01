@@ -38,15 +38,16 @@ import (
 // This function is used by CreateOrPatch to generate the desired pod spec.
 func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) (corev1.PodTemplateSpec, error) {
 	// Build shared volumes
+	instanceName := instance.Name
 	volumes := []corev1.Volume{
-		buildOGXConfigVolume(VolumeDefaultMode),
-		buildLightspeedStackConfigVolume(VolumeDefaultMode),
-		buildVectorDBScriptsVolume(),
+		buildOGXConfigVolume(instanceName, VolumeDefaultMode),
+		buildLightspeedStackConfigVolume(instanceName, VolumeDefaultMode),
+		buildVectorDBScriptsVolume(instanceName),
 	}
 
 	// Shared volumes - CA bundle covers all cluster CAs
 	sharedMounts := []corev1.VolumeMount{}
-	addCABundleVolumesAndMounts(&volumes, &sharedMounts)
+	addCABundleVolumesAndMounts(instanceName, &volumes, &sharedMounts)
 	addVectorDBDataVolumesAndMounts(&volumes, &sharedMounts)
 
 	// Llama cache emptydir
@@ -121,7 +122,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	// Data collection volumes (shared folder + exporter config)
 	dataCollectionEnabled := isDataCollectionEnabled(instance)
 	if dataCollectionEnabled {
-		addDataCollectorVolumes(&volumes, VolumeDefaultMode)
+		addDataCollectorVolumes(instanceName, &volumes, VolumeDefaultMode)
 	}
 
 	// Lightspeed Stack container mounts: its config + shared + TLS (only API container needs TLS)
@@ -129,7 +130,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	lightspeedStackMounts = append(lightspeedStackMounts, sharedMounts...)
 
 	tlsMounts := []corev1.VolumeMount{}
-	addTLSVolumesAndMounts(&volumes, &tlsMounts, VolumeDefaultMode)
+	addTLSVolumesAndMounts(instanceName, &volumes, &tlsMounts, VolumeDefaultMode)
 	lightspeedStackMounts = append(lightspeedStackMounts, tlsMounts...)
 
 	// Mount shared data folder on lightspeed-service-api for feedback/transcripts
@@ -206,7 +207,7 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 	}
 
 	// Build configmap resource version annotations for change detection
-	annotations, err := buildConfigMapAnnotations(h, ctx)
+	annotations, err := buildConfigMapAnnotations(instanceName, h, ctx)
 	if err != nil {
 		return corev1.PodTemplateSpec{}, err
 	}
@@ -218,11 +219,11 @@ func buildLCorePodTemplateSpec(h *common_helper.Helper, ctx context.Context, ins
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels:      generateAppServerSelectorLabels(),
+			Labels:      generateAppServerSelectorLabels(instanceName),
 			Annotations: annotations,
 		},
 		Spec: corev1.PodSpec{
-			ServiceAccountName: OpenStackLightspeedAppServerServiceAccountName,
+			ServiceAccountName: OpenStackLightspeedAppServerServiceAccountName(instanceName),
 			InitContainers:     initContainers,
 			Containers:         containers,
 			Volumes:            volumes,
@@ -340,13 +341,13 @@ func buildInitContainers(
 }
 
 // buildLightspeedStackConfigVolume returns the volume for the lightspeed-stack config.
-func buildLightspeedStackConfigVolume(volumeDefaultMode int32) corev1.Volume {
+func buildLightspeedStackConfigVolume(instanceName string, volumeDefaultMode int32) corev1.Volume {
 	return corev1.Volume{
 		Name: LightspeedStackConfig,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: LCoreConfigCmName,
+					Name: LCoreConfigCmName(instanceName),
 				},
 				DefaultMode: toPtr(volumeDefaultMode),
 			},
@@ -355,13 +356,13 @@ func buildLightspeedStackConfigVolume(volumeDefaultMode int32) corev1.Volume {
 }
 
 // buildOGXConfigVolume returns the volume for the OGX config.
-func buildOGXConfigVolume(volumeDefaultMode int32) corev1.Volume {
+func buildOGXConfigVolume(instanceName string, volumeDefaultMode int32) corev1.Volume {
 	return corev1.Volume{
 		Name: OGXConfigVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: LlamaStackConfigCmName,
+					Name: LlamaStackConfigCmName(instanceName),
 				},
 				DefaultMode: toPtr(volumeDefaultMode),
 			},
@@ -370,13 +371,13 @@ func buildOGXConfigVolume(volumeDefaultMode int32) corev1.Volume {
 }
 
 // buildVectorDBScriptsVolume returns the volume for the Vector DB scripts.
-func buildVectorDBScriptsVolume() corev1.Volume {
+func buildVectorDBScriptsVolume(instanceName string) corev1.Volume {
 	return corev1.Volume{
 		Name: VectorDBScriptsVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: VectorDBScriptsConfigMapName,
+					Name: VectorDBScriptsConfigMapName(instanceName),
 				},
 				DefaultMode: toPtr(VolumeExecutableMode),
 			},
@@ -399,12 +400,12 @@ func addVectorDBDataVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.
 }
 
 // addTLSVolumesAndMounts adds the service-ca TLS certificate volume and mount.
-func addTLSVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount, volumeDefaultMode int32) {
+func addTLSVolumesAndMounts(instanceName string, volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount, volumeDefaultMode int32) {
 	*volumes = append(*volumes, corev1.Volume{
 		Name: "tls-certs",
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
-				SecretName:  OpenStackLightspeedCertsSecretName,
+				SecretName:  OpenStackLightspeedCertsSecretName(instanceName),
 				DefaultMode: toPtr(volumeDefaultMode),
 			},
 		},
@@ -431,7 +432,7 @@ func addLlamaCacheVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.Vo
 }
 
 // addDataCollectorVolumes adds the shared data EmptyDir and exporter config volumes.
-func addDataCollectorVolumes(volumes *[]corev1.Volume, volumeDefaultMode int32) {
+func addDataCollectorVolumes(instanceName string, volumes *[]corev1.Volume, volumeDefaultMode int32) {
 	*volumes = append(*volumes, corev1.Volume{
 		Name: UserDataVolumeName,
 		VolumeSource: corev1.VolumeSource{
@@ -444,7 +445,7 @@ func addDataCollectorVolumes(volumes *[]corev1.Volume, volumeDefaultMode int32) 
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: ExporterConfigCmName,
+					Name: ExporterConfigCmName(instanceName),
 				},
 				DefaultMode: toPtr(volumeDefaultMode),
 			},
@@ -455,13 +456,13 @@ func addDataCollectorVolumes(volumes *[]corev1.Volume, volumeDefaultMode int32) 
 // addCABundleVolumesAndMounts adds the CA bundle volume and mount.
 // The CA bundle is always present (created by reconcileCABundleConfigMap)
 // and mounted at the RHEL system CA path so applications find it automatically.
-func addCABundleVolumesAndMounts(volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount) {
+func addCABundleVolumesAndMounts(instanceName string, volumes *[]corev1.Volume, mounts *[]corev1.VolumeMount) {
 	*volumes = append(*volumes, corev1.Volume{
 		Name: CABundleVolumeName,
 		VolumeSource: corev1.VolumeSource{
 			ConfigMap: &corev1.ConfigMapVolumeSource{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: CABundleConfigMapName,
+					Name: CABundleConfigMapName(instanceName),
 				},
 				DefaultMode: toPtr(VolumeDefaultMode),
 			},
@@ -577,7 +578,7 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 	}
 
 	// Postgres password for ${env.POSTGRES_PASSWORD} substitution in llama-stack config
-	envVars = append(envVars, buildPostgresPasswordEnvVar())
+	envVars = append(envVars, buildPostgresPasswordEnvVar(instance.Name))
 
 	// PostgreSQL SSL configuration for OGX (llama-stack).
 	// OGX's PostgresSqlStoreConfig does not support ssl_mode/ca_cert_path fields yet
@@ -611,7 +612,7 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 	if isOKPEnabled(instance) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "RH_SERVER_OKP",
-			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
+			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName(instance.Name), instance.GetNamespace(), OKPServicePort),
 		})
 	}
 
@@ -619,13 +620,13 @@ func buildLlamaStackEnvVars(h *common_helper.Helper, ctx context.Context, instan
 }
 
 // buildPostgresPasswordEnvVar returns the POSTGRES_PASSWORD env var sourced from the postgres secret.
-func buildPostgresPasswordEnvVar() corev1.EnvVar {
+func buildPostgresPasswordEnvVar(instanceName string) corev1.EnvVar {
 	return corev1.EnvVar{
 		Name: "POSTGRES_PASSWORD",
 		ValueFrom: &corev1.EnvVarSource{
 			SecretKeyRef: &corev1.SecretKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{
-					Name: PostgresSecretName,
+					Name: PostgresSecretName(instanceName),
 				},
 				Key: OpenStackLightspeedComponentPasswordFileName,
 			},
@@ -640,12 +641,12 @@ func buildLightspeedStackEnvVars(instance *apiv1beta1.OpenStackLightspeed) []cor
 			Name:  "LIGHTSPEED_STACK_LOG_LEVEL",
 			Value: instance.Spec.Logging.LightspeedStackLogLevel,
 		},
-		buildPostgresPasswordEnvVar(),
+		buildPostgresPasswordEnvVar(instance.Name),
 	}
 	if isOKPEnabled(instance) {
 		envVars = append(envVars, corev1.EnvVar{
 			Name:  "RH_SERVER_OKP",
-			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName, instance.GetNamespace(), OKPServicePort),
+			Value: fmt.Sprintf("http://%s.%s.svc:%d", OKPServiceName(instance.Name), instance.GetNamespace(), OKPServicePort),
 		})
 	}
 	return envVars
@@ -701,10 +702,10 @@ func getOGXLogLevel(instance *apiv1beta1.OpenStackLightspeed) string {
 
 // buildConfigMapAnnotations builds annotations with configmap resource versions
 // so that changes to the configmaps trigger a deployment rollout.
-func buildConfigMapAnnotations(h *common_helper.Helper, ctx context.Context) (map[string]string, error) {
+func buildConfigMapAnnotations(instanceName string, h *common_helper.Helper, ctx context.Context) (map[string]string, error) {
 	annotations := make(map[string]string)
 
-	lcoreVersion, err := getConfigMapResourceVersion(ctx, h, LCoreConfigCmName, h.GetBeforeObject().GetNamespace())
+	lcoreVersion, err := getConfigMapResourceVersion(ctx, h, LCoreConfigCmName(instanceName), h.GetBeforeObject().GetNamespace())
 	if err != nil {
 		// ConfigMap may not exist yet during initial creation
 		if !errors.IsNotFound(err) {
@@ -714,7 +715,7 @@ func buildConfigMapAnnotations(h *common_helper.Helper, ctx context.Context) (ma
 		annotations[LCoreConfigMapResourceVersionAnnotation] = lcoreVersion
 	}
 
-	llamaVersion, err := getConfigMapResourceVersion(ctx, h, LlamaStackConfigCmName, h.GetBeforeObject().GetNamespace())
+	llamaVersion, err := getConfigMapResourceVersion(ctx, h, LlamaStackConfigCmName(instanceName), h.GetBeforeObject().GetNamespace())
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get Llama Stack configmap resource version: %w", err)
@@ -723,7 +724,7 @@ func buildConfigMapAnnotations(h *common_helper.Helper, ctx context.Context) (ma
 		annotations[LlamaStackConfigMapResourceVersionAnnotation] = llamaVersion
 	}
 
-	vectorDBScriptsVersion, err := getConfigMapResourceVersion(ctx, h, VectorDBScriptsConfigMapName, h.GetBeforeObject().GetNamespace())
+	vectorDBScriptsVersion, err := getConfigMapResourceVersion(ctx, h, VectorDBScriptsConfigMapName(instanceName), h.GetBeforeObject().GetNamespace())
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get Vector DB scripts configmap resource version: %w", err)
@@ -732,7 +733,7 @@ func buildConfigMapAnnotations(h *common_helper.Helper, ctx context.Context) (ma
 		annotations[VectorDBScriptsConfigMapVersionAnnotation] = vectorDBScriptsVersion
 	}
 
-	caBundleVersion, err := getConfigMapResourceVersion(ctx, h, CABundleConfigMapName, h.GetBeforeObject().GetNamespace())
+	caBundleVersion, err := getConfigMapResourceVersion(ctx, h, CABundleConfigMapName(instanceName), h.GetBeforeObject().GetNamespace())
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, fmt.Errorf("failed to get CA bundle configmap resource version: %w", err)

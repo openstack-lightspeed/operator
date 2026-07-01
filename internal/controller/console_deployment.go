@@ -28,11 +28,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
-// generateConsoleSelectorLabels returns a map of labels used as selectors
-// for the console plugin pods.
-func generateConsoleSelectorLabels() map[string]string {
+func generateConsoleSelectorLabels(instanceName string) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/component":  "console-plugin",
+		"app.kubernetes.io/instance":   instanceName,
 		"app.kubernetes.io/managed-by": "openstack-lightspeed-operator",
 		"app.kubernetes.io/name":       "lightspeed-console-plugin",
 		"app.kubernetes.io/part-of":    "openstack-lightspeed",
@@ -48,10 +47,10 @@ const consoleLocalesPath = "/usr/share/nginx/html/locales/en/" + consoleLocalesF
 // buildConsoleDeploymentSpec builds the Deployment spec for the console plugin.
 // Includes an init container that rewrites OpenShift references to OpenStack
 // in the locales JSON file using an emptyDir volume.
-func buildConsoleDeploymentSpec(consoleImage string) appsv1.DeploymentSpec {
+func buildConsoleDeploymentSpec(instanceName string, consoleImage string) appsv1.DeploymentSpec {
 	replicas := int32(1)
 	volumeDefaultMode := VolumeDefaultMode
-	labels := generateConsoleSelectorLabels()
+	labels := generateConsoleSelectorLabels(instanceName)
 
 	return appsv1.DeploymentSpec{
 		Replicas: &replicas,
@@ -69,7 +68,7 @@ func buildConsoleDeploymentSpec(consoleImage string) appsv1.DeploymentSpec {
 						Type: corev1.SeccompProfileTypeRuntimeDefault,
 					},
 				},
-				ServiceAccountName: ConsoleUIServiceAccountName,
+				ServiceAccountName: ConsoleUIServiceAccountName(instanceName),
 				InitContainers: []corev1.Container{
 					{
 						Name:  "rewrite-locales",
@@ -159,7 +158,7 @@ func buildConsoleDeploymentSpec(consoleImage string) appsv1.DeploymentSpec {
 						Name: "lightspeed-console-plugin-cert",
 						VolumeSource: corev1.VolumeSource{
 							Secret: &corev1.SecretVolumeSource{
-								SecretName:  ConsoleUIServiceCertSecretName,
+								SecretName:  ConsoleUIServiceCertSecretName(instanceName),
 								DefaultMode: &volumeDefaultMode,
 							},
 						},
@@ -169,7 +168,7 @@ func buildConsoleDeploymentSpec(consoleImage string) appsv1.DeploymentSpec {
 						VolumeSource: corev1.VolumeSource{
 							ConfigMap: &corev1.ConfigMapVolumeSource{
 								LocalObjectReference: corev1.LocalObjectReference{
-									Name: ConsoleUIConfigMapName,
+									Name: ConsoleUIConfigMapName(instanceName),
 								},
 								DefaultMode: &volumeDefaultMode,
 							},
@@ -194,11 +193,11 @@ func buildConsoleDeploymentSpec(consoleImage string) appsv1.DeploymentSpec {
 }
 
 // buildConsolePluginSpec builds the ConsolePlugin spec with backend and proxy configuration.
-func buildConsolePluginSpec(namespace string) consolev1.ConsolePluginSpec {
+func buildConsolePluginSpec(instanceName string, namespace string) consolev1.ConsolePluginSpec {
 	return consolev1.ConsolePluginSpec{
 		Backend: consolev1.ConsolePluginBackend{
 			Service: &consolev1.ConsolePluginService{
-				Name:      ConsoleUIServiceName,
+				Name:      ConsoleUIServiceName(instanceName),
 				Namespace: namespace,
 				Port:      ConsoleUIHTTPSPort,
 				BasePath:  "/",
@@ -215,7 +214,7 @@ func buildConsolePluginSpec(namespace string) consolev1.ConsolePluginSpec {
 				Authorization: consolev1.UserToken,
 				Endpoint: consolev1.ConsolePluginProxyEndpoint{
 					Service: &consolev1.ConsolePluginProxyServiceConfig{
-						Name:      OpenStackLightspeedAppServerServiceName,
+						Name:      OpenStackLightspeedAppServerServiceName(instanceName),
 						Namespace: namespace,
 						Port:      OpenStackLightspeedAppServerServicePort,
 					},
@@ -232,10 +231,10 @@ func buildConsoleNginxConfig() string {
 }
 
 // buildConsoleNetworkPolicySpec builds the NetworkPolicy spec for the console plugin.
-func buildConsoleNetworkPolicySpec() networkingv1.NetworkPolicySpec {
+func buildConsoleNetworkPolicySpec(instanceName string) networkingv1.NetworkPolicySpec {
 	return networkingv1.NetworkPolicySpec{
 		PodSelector: metav1.LabelSelector{
-			MatchLabels: generateConsoleSelectorLabels(),
+			MatchLabels: generateConsoleSelectorLabels(instanceName),
 		},
 		Ingress: []networkingv1.NetworkPolicyIngressRule{
 			{

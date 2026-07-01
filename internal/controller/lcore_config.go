@@ -124,10 +124,10 @@ func buildLCoreInferenceConfig(_ *common_helper.Helper, instance *apiv1beta1.Ope
 }
 
 // buildLCoreDatabaseConfig configures persistent database storage (PostgreSQL)
-func buildLCoreDatabaseConfig(h *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+func buildLCoreDatabaseConfig(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
 	return map[string]interface{}{
 		"postgres": map[string]interface{}{
-			"host":         PostgresServiceName + "." + h.GetBeforeObject().GetNamespace() + ".svc",
+			"host":         PostgresServiceName(instance.Name) + "." + h.GetBeforeObject().GetNamespace() + ".svc",
 			"port":         PostgresServicePort,
 			"db":           PostgresDefaultDbName,
 			"user":         PostgresDefaultUser,
@@ -155,11 +155,11 @@ func buildLCoreCustomizationConfig() map[string]interface{} {
 }
 
 // buildLCoreConversationCacheConfig configures chat history caching (PostgreSQL)
-func buildLCoreConversationCacheConfig(h *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
+func buildLCoreConversationCacheConfig(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) map[string]interface{} {
 	return map[string]interface{}{
 		"type": "postgres",
 		"postgres": map[string]interface{}{
-			"host":         PostgresServiceName + "." + h.GetBeforeObject().GetNamespace() + ".svc",
+			"host":         PostgresServiceName(instance.Name) + "." + h.GetBeforeObject().GetNamespace() + ".svc",
 			"port":         PostgresServicePort,
 			"db":           PostgresDefaultDbName,
 			"user":         PostgresDefaultUser,
@@ -178,7 +178,7 @@ func isDataCollectionEnabled(instance *apiv1beta1.OpenStackLightspeed) bool {
 }
 
 // buildExporterConfigMap creates the ConfigMap for the dataverse exporter sidecar.
-func buildExporterConfigMap(h *common_helper.Helper, _ *apiv1beta1.OpenStackLightspeed) *corev1.ConfigMap {
+func buildExporterConfigMap(h *common_helper.Helper, instance *apiv1beta1.OpenStackLightspeed) *corev1.ConfigMap {
 	exporterConfig := fmt.Sprintf(`service_id: "%s"
 ingress_server_url: "https://console.redhat.com/api/ingress/v1/upload"
 allowed_subdirs:
@@ -192,9 +192,9 @@ ingress_connection_timeout: 30
 
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ExporterConfigCmName,
+			Name:      ExporterConfigCmName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
-			Labels:    generateAppServerSelectorLabels(),
+			Labels:    generateAppServerSelectorLabels(instance.Name),
 		},
 		Data: map[string]string{
 			ExporterConfigFilename: exporterConfig,
