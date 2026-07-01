@@ -244,6 +244,8 @@ spec:
                     - ALL
               securityContext:
                 runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
               serviceAccountName: openstack-lightspeed-operator-controller-manager
               terminationGracePeriodSeconds: 10
       permissions:
