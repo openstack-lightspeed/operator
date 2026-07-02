@@ -57,11 +57,10 @@ func getRawClient(helper *common_helper.Helper) (client.Client, error) {
 	return rawClient, nil
 }
 
-// generateAppServerSelectorLabels returns a map of labels used as selectors
-// for the application server pods.
-func generateAppServerSelectorLabels() map[string]string {
+func generateAppServerSelectorLabels(instanceName string) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/component":  "app-server",
+		"app.kubernetes.io/instance":   instanceName,
 		"app.kubernetes.io/managed-by": "openstack-lightspeed-operator",
 		"app.kubernetes.io/name":       "openstack-lightspeed-app-server",
 		"app.kubernetes.io/part-of":    "openstack-lightspeed",
@@ -92,10 +91,10 @@ func providerNameToEnvVarName(providerName string) string {
 	return name
 }
 
-// generatePostgresSelectorLabels returns selector labels for Postgres components.
-func generatePostgresSelectorLabels() map[string]string {
+func generatePostgresSelectorLabels(instanceName string) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/component":  "postgres-server",
+		"app.kubernetes.io/instance":   instanceName,
 		"app.kubernetes.io/managed-by": "openstack-lightspeed-operator",
 		"app.kubernetes.io/name":       "openstack-lightspeed-service-postgres",
 		"app.kubernetes.io/part-of":    "openstack-lightspeed",
@@ -120,10 +119,10 @@ func isDeploymentReady(deploy *appsv1.Deployment) bool {
 		deploy.Status.Replicas == replicas
 }
 
-// generateOKPSelectorLabels returns selector labels for OKP components.
-func generateOKPSelectorLabels() map[string]string {
+func generateOKPSelectorLabels(instanceName string) map[string]string {
 	return map[string]string{
 		"app.kubernetes.io/component":  "okp-server",
+		"app.kubernetes.io/instance":   instanceName,
 		"app.kubernetes.io/managed-by": "openstack-lightspeed-operator",
 		"app.kubernetes.io/name":       "openstack-lightspeed-okp-server",
 		"app.kubernetes.io/part-of":    "openstack-lightspeed",

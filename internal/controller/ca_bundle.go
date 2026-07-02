@@ -170,7 +170,7 @@ func reconcileCABundleConfigMap(h *common_helper.Helper, ctx context.Context, in
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      CABundleConfigMapName,
+			Name:      CABundleConfigMapName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}

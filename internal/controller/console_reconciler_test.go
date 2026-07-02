@@ -34,10 +34,13 @@ var _ = Describe("Console Plugin", func() {
 		apiv1beta1.SetupDefaults()
 	})
 
+	const testInstanceName = "test"
+
 	Describe("generateConsoleSelectorLabels", func() {
 		It("should return the expected labels", func() {
-			labels := generateConsoleSelectorLabels()
+			labels := generateConsoleSelectorLabels(testInstanceName)
 			Expect(labels).To(HaveKeyWithValue("app.kubernetes.io/component", "console-plugin"))
+			Expect(labels).To(HaveKeyWithValue("app.kubernetes.io/instance", testInstanceName))
 			Expect(labels).To(HaveKeyWithValue("app.kubernetes.io/managed-by", "openstack-lightspeed-operator"))
 			Expect(labels).To(HaveKeyWithValue("app.kubernetes.io/name", "lightspeed-console-plugin"))
 			Expect(labels).To(HaveKeyWithValue("app.kubernetes.io/part-of", "openstack-lightspeed"))
@@ -48,7 +51,7 @@ var _ = Describe("Console Plugin", func() {
 		var spec appsv1.DeploymentSpec
 
 		BeforeEach(func() {
-			spec = buildConsoleDeploymentSpec(apiv1beta1.OpenStackLightspeedDefaultValues.ConsoleImagePF5URL)
+			spec = buildConsoleDeploymentSpec(testInstanceName, apiv1beta1.OpenStackLightspeedDefaultValues.ConsoleImagePF5URL)
 		})
 
 		It("should have one replica", func() {
@@ -57,7 +60,7 @@ var _ = Describe("Console Plugin", func() {
 		})
 
 		It("should have correct selector labels", func() {
-			Expect(spec.Selector.MatchLabels).To(Equal(generateConsoleSelectorLabels()))
+			Expect(spec.Selector.MatchLabels).To(Equal(generateConsoleSelectorLabels(testInstanceName)))
 		})
 
 		It("should have one container with the console image", func() {
@@ -107,7 +110,7 @@ var _ = Describe("Console Plugin", func() {
 				if v.Name == "lightspeed-console-plugin-cert" {
 					found = true
 					Expect(v.VolumeSource.Secret).NotTo(BeNil())
-					Expect(v.VolumeSource.Secret.SecretName).To(Equal(ConsoleUIServiceCertSecretName))
+					Expect(v.VolumeSource.Secret.SecretName).To(Equal(ConsoleUIServiceCertSecretName(testInstanceName)))
 				}
 			}
 			Expect(found).To(BeTrue())
@@ -120,7 +123,7 @@ var _ = Describe("Console Plugin", func() {
 				if v.Name == "nginx-config" {
 					found = true
 					Expect(v.VolumeSource.ConfigMap).NotTo(BeNil())
-					Expect(v.VolumeSource.ConfigMap.Name).To(Equal(ConsoleUIConfigMapName))
+					Expect(v.VolumeSource.ConfigMap.Name).To(Equal(ConsoleUIConfigMapName(testInstanceName)))
 				}
 			}
 			Expect(found).To(BeTrue())
@@ -139,7 +142,7 @@ var _ = Describe("Console Plugin", func() {
 		})
 
 		It("should use the console service account", func() {
-			Expect(spec.Template.Spec.ServiceAccountName).To(Equal(ConsoleUIServiceAccountName))
+			Expect(spec.Template.Spec.ServiceAccountName).To(Equal(ConsoleUIServiceAccountName(testInstanceName)))
 		})
 
 		It("should have a locales-rewrite emptyDir volume", func() {
@@ -189,12 +192,12 @@ var _ = Describe("Console Plugin", func() {
 
 	Describe("buildConsolePluginSpec", func() {
 		const testNamespace = "test-ns"
-		var spec = buildConsolePluginSpec(testNamespace)
+		var spec = buildConsolePluginSpec(testInstanceName, testNamespace)
 
 		It("should have service backend", func() {
 			Expect(spec.Backend.Type).To(Equal(consolev1.Service))
 			Expect(spec.Backend.Service).NotTo(BeNil())
-			Expect(spec.Backend.Service.Name).To(Equal(ConsoleUIServiceName))
+			Expect(spec.Backend.Service.Name).To(Equal(ConsoleUIServiceName(testInstanceName)))
 			Expect(spec.Backend.Service.Namespace).To(Equal(testNamespace))
 			Expect(spec.Backend.Service.Port).To(Equal(ConsoleUIHTTPSPort))
 		})
@@ -206,7 +209,7 @@ var _ = Describe("Console Plugin", func() {
 			Expect(proxy.Authorization).To(Equal(consolev1.UserToken))
 			Expect(proxy.Endpoint.Type).To(Equal(consolev1.ProxyTypeService))
 			Expect(proxy.Endpoint.Service).NotTo(BeNil())
-			Expect(proxy.Endpoint.Service.Name).To(Equal(OpenStackLightspeedAppServerServiceName))
+			Expect(proxy.Endpoint.Service.Name).To(Equal(OpenStackLightspeedAppServerServiceName(testInstanceName)))
 			Expect(proxy.Endpoint.Service.Namespace).To(Equal(testNamespace))
 			Expect(proxy.Endpoint.Service.Port).To(Equal(int32(OpenStackLightspeedAppServerServicePort)))
 		})
@@ -227,10 +230,10 @@ var _ = Describe("Console Plugin", func() {
 	})
 
 	Describe("buildConsoleNetworkPolicySpec", func() {
-		var spec = buildConsoleNetworkPolicySpec()
+		var spec = buildConsoleNetworkPolicySpec(testInstanceName)
 
 		It("should select console plugin pods", func() {
-			Expect(spec.PodSelector.MatchLabels).To(Equal(generateConsoleSelectorLabels()))
+			Expect(spec.PodSelector.MatchLabels).To(Equal(generateConsoleSelectorLabels(testInstanceName)))
 		})
 
 		It("should allow ingress from openshift-console namespace", func() {

@@ -35,7 +35,7 @@ import (
 // When OKP is disabled, it cleans up existing resources.
 func ReconcileOKPDeployment(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	if !isOKPEnabled(instance) {
-		return cleanupOKPResources(h, ctx)
+		return cleanupOKPResources(h, ctx, instance)
 	}
 
 	tasks := []ReconcileTask{
@@ -45,19 +45,19 @@ func ReconcileOKPDeployment(h *common_helper.Helper, ctx context.Context, instan
 	return ReconcileTasksFailFast(h, ctx, instance, tasks)
 }
 
-func cleanupOKPResources(h *common_helper.Helper, ctx context.Context) error {
+func cleanupOKPResources(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 	ns := h.GetBeforeObject().GetNamespace()
 
 	deploy := &appsv1.Deployment{}
-	deploy.Name = OKPDeploymentName
+	deploy.Name = OKPDeploymentName(instance.Name)
 	deploy.Namespace = ns
 	if err := h.GetClient().Delete(ctx, deploy); err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("%w: %v", ErrDeleteOKPDeployment, err)
 	}
 
 	svc := &corev1.Service{}
-	svc.Name = OKPServiceName
+	svc.Name = OKPServiceName(instance.Name)
 	svc.Namespace = ns
 	if err := h.GetClient().Delete(ctx, svc); err != nil && !errors.IsNotFound(err) {
 		return fmt.Errorf("%w: %v", ErrDeleteOKPService, err)
@@ -72,7 +72,7 @@ func reconcileOKPDeployment(h *common_helper.Helper, ctx context.Context, instan
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OKPDeploymentName,
+			Name:      OKPDeploymentName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -83,7 +83,7 @@ func reconcileOKPDeployment(h *common_helper.Helper, ctx context.Context, instan
 		replicas := int32(1)
 		deployment.Spec.Replicas = &replicas
 		deployment.Spec.Selector = &metav1.LabelSelector{
-			MatchLabels: generateOKPSelectorLabels(),
+			MatchLabels: generateOKPSelectorLabels(instance.Name),
 		}
 		deployment.Spec.Template = podTemplateSpec
 
@@ -98,18 +98,18 @@ func reconcileOKPDeployment(h *common_helper.Helper, ctx context.Context, instan
 	return nil
 }
 
-func reconcileOKPService(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileOKPService(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OKPServiceName,
+			Name:      OKPServiceName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), svc, func() error {
-		svc.Spec.Selector = generateOKPSelectorLabels()
+		svc.Spec.Selector = generateOKPSelectorLabels(instance.Name)
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
 				Name:       "http",
@@ -149,7 +149,7 @@ func buildOKPPodTemplateSpec(instance *apiv1beta1.OpenStackLightspeed) corev1.Po
 
 	return corev1.PodTemplateSpec{
 		ObjectMeta: metav1.ObjectMeta{
-			Labels: generateOKPSelectorLabels(),
+			Labels: generateOKPSelectorLabels(instance.Name),
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{

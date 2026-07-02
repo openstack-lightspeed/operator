@@ -230,9 +230,9 @@ func (r *OpenStackLightspeedReconciler) reconcileStatus(
 	instance *apiv1beta1.OpenStackLightspeed,
 ) (ctrl.Result, error) {
 	deployments := []string{
-		PostgresDeploymentName,
-		LCoreDeploymentName,
-		ConsoleUIDeploymentName,
+		PostgresDeploymentName(instance.Name),
+		LCoreDeploymentName(instance.Name),
+		ConsoleUIDeploymentName(instance.Name),
 	}
 	for _, deploymentName := range deployments {
 		deployment, err := getDeployment(ctx, helper, deploymentName, instance.Namespace)

@@ -75,7 +75,7 @@ func reconcileServiceAccount(h *common_helper.Helper, ctx context.Context, insta
 
 	sa := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OpenStackLightspeedAppServerServiceAccountName,
+			Name:      OpenStackLightspeedAppServerServiceAccountName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -99,8 +99,8 @@ func reconcileSARRole(h *common_helper.Helper, ctx context.Context, instance *ap
 
 	role := &rbacv1.ClusterRole{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   OpenStackLightspeedAppServerSARRoleName,
-			Labels: generateAppServerSelectorLabels(),
+			Name:   OpenStackLightspeedAppServerSARRoleName(instance.Name),
+			Labels: generateAppServerSelectorLabels(instance.Name),
 		},
 	}
 
@@ -147,8 +147,8 @@ func reconcileSARRoleBinding(h *common_helper.Helper, ctx context.Context, insta
 
 	rb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   OpenStackLightspeedAppServerSARRoleBindingName,
-			Labels: generateAppServerSelectorLabels(),
+			Name:   OpenStackLightspeedAppServerSARRoleBindingName(instance.Name),
+			Labels: generateAppServerSelectorLabels(instance.Name),
 		},
 	}
 
@@ -157,14 +157,14 @@ func reconcileSARRoleBinding(h *common_helper.Helper, ctx context.Context, insta
 		rb.Subjects = []rbacv1.Subject{
 			{
 				Kind:      "ServiceAccount",
-				Name:      OpenStackLightspeedAppServerServiceAccountName,
+				Name:      OpenStackLightspeedAppServerServiceAccountName(instance.Name),
 				Namespace: h.GetBeforeObject().GetNamespace(),
 			},
 		}
 		rb.RoleRef = rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
 			Kind:     "ClusterRole",
-			Name:     OpenStackLightspeedAppServerSARRoleName,
+			Name:     OpenStackLightspeedAppServerSARRoleName(instance.Name),
 		}
 		// Note: ClusterRoleBinding is cluster-scoped, no owner reference needed
 		return nil
@@ -190,7 +190,7 @@ func reconcileLlamaStackConfigMap(h *common_helper.Helper, ctx context.Context, 
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      LlamaStackConfigCmName,
+			Name:      LlamaStackConfigCmName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -224,7 +224,7 @@ func reconcileLcoreConfigMap(h *common_helper.Helper, ctx context.Context, insta
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      LCoreConfigCmName,
+			Name:      LCoreConfigCmName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -253,7 +253,7 @@ func reconcileExporterConfigMap(h *common_helper.Helper, ctx context.Context, in
 
 	if !isDataCollectionEnabled(instance) {
 		cm := &corev1.ConfigMap{}
-		cm.Name = ExporterConfigCmName
+		cm.Name = ExporterConfigCmName(instance.Name)
 		cm.Namespace = h.GetBeforeObject().GetNamespace()
 		if err := h.GetClient().Delete(ctx, cm); err != nil && !errors.IsNotFound(err) {
 			return fmt.Errorf("failed to delete exporter configmap: %w", err)
@@ -263,7 +263,7 @@ func reconcileExporterConfigMap(h *common_helper.Helper, ctx context.Context, in
 
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ExporterConfigCmName,
+			Name:      ExporterConfigCmName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -288,7 +288,7 @@ func reconcileVectorDBScriptsConfigMap(h *common_helper.Helper, ctx context.Cont
 	logger := h.GetLogger()
 	cm := &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      VectorDBScriptsConfigMapName,
+			Name:      VectorDBScriptsConfigMapName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -323,7 +323,7 @@ func reconcileNetworkPolicy(h *common_helper.Helper, ctx context.Context, instan
 
 	np := &networkingv1.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OpenStackLightspeedAppServerNetworkPolicyName,
+			Name:      OpenStackLightspeedAppServerNetworkPolicyName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -332,7 +332,7 @@ func reconcileNetworkPolicy(h *common_helper.Helper, ctx context.Context, instan
 		// Set Spec (wholesale replacement, same as before)
 		np.Spec = networkingv1.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
-				MatchLabels: generateAppServerSelectorLabels(),
+				MatchLabels: generateAppServerSelectorLabels(instance.Name),
 			},
 			Ingress: []networkingv1.NetworkPolicyIngressRule{
 				{
@@ -366,7 +366,7 @@ func reconcileDeployment(h *common_helper.Helper, ctx context.Context, instance 
 
 	deployment := &appsv1.Deployment{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      LCoreDeploymentName,
+			Name:      LCoreDeploymentName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
@@ -382,7 +382,7 @@ func reconcileDeployment(h *common_helper.Helper, ctx context.Context, instance 
 		replicas := int32(1)
 		deployment.Spec.Replicas = &replicas
 		deployment.Spec.Selector = &metav1.LabelSelector{
-			MatchLabels: generateAppServerSelectorLabels(),
+			MatchLabels: generateAppServerSelectorLabels(instance.Name),
 		}
 		deployment.Spec.Template = podTemplateSpec
 
@@ -405,14 +405,14 @@ func reconcileService(h *common_helper.Helper, ctx context.Context, instance *ap
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      OpenStackLightspeedAppServerServiceName,
+			Name:      OpenStackLightspeedAppServerServiceName(instance.Name),
 			Namespace: h.GetBeforeObject().GetNamespace(),
 		},
 	}
 
 	result, err := controllerutil.CreateOrPatch(ctx, h.GetClient(), svc, func() error {
 		// Selective field updates (preserves ClusterIP, ClusterIPs, etc.)
-		svc.Spec.Selector = generateAppServerSelectorLabels()
+		svc.Spec.Selector = generateAppServerSelectorLabels(instance.Name)
 		svc.Spec.Ports = []corev1.ServicePort{
 			{
 				Name:       "https",
@@ -427,7 +427,7 @@ func reconcileService(h *common_helper.Helper, ctx context.Context, instance *ap
 		if svc.Annotations == nil {
 			svc.Annotations = make(map[string]string)
 		}
-		svc.Annotations[ServingCertSecretAnnotationKey] = OpenStackLightspeedCertsSecretName
+		svc.Annotations[ServingCertSecretAnnotationKey] = OpenStackLightspeedCertsSecretName(instance.Name)
 
 		// Set owner reference
 		return controllerutil.SetControllerReference(h.GetBeforeObject(), svc, h.GetScheme())
@@ -443,12 +443,12 @@ func reconcileService(h *common_helper.Helper, ctx context.Context, instance *ap
 
 // reconcileTLSSecret waits for the TLS secret to be populated by the service-ca
 // operator with tls.key and tls.crt data.
-func reconcileTLSSecret(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileTLSSecret(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
-	logger.Info("waiting for TLS secret to be populated", "name", OpenStackLightspeedCertsSecretName)
+	logger.Info("waiting for TLS secret to be populated", "name", OpenStackLightspeedCertsSecretName(instance.Name))
 
 	secretKey := client.ObjectKey{
-		Name:      OpenStackLightspeedCertsSecretName,
+		Name:      OpenStackLightspeedCertsSecretName(instance.Name),
 		Namespace: h.GetBeforeObject().GetNamespace(),
 	}
 
@@ -468,15 +468,15 @@ func reconcileTLSSecret(h *common_helper.Helper, ctx context.Context, _ *apiv1be
 		return fmt.Errorf("%w: %v", ErrGetTLSSecret, err)
 	}
 
-	logger.Info("TLS secret is ready", "name", OpenStackLightspeedCertsSecretName)
+	logger.Info("TLS secret is ready", "name", OpenStackLightspeedCertsSecretName(instance.Name))
 	return nil
 }
 
 // reconcileDeleteClusterRoleBindingByLabels deletes ClusterRoleBinding resources by labels.
-func reconcileDeleteClusterRoleBindingByLabels(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileDeleteClusterRoleBindingByLabels(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
-	labelSelector := labels.Set(generateAppServerSelectorLabels()).AsSelector()
+	labelSelector := labels.Set(generateAppServerSelectorLabels(instance.Name)).AsSelector()
 	matchingLabels := client.MatchingLabelsSelector{Selector: labelSelector}
 	deleteOptions := &client.DeleteAllOfOptions{
 		ListOptions: client.ListOptions{
@@ -493,10 +493,10 @@ func reconcileDeleteClusterRoleBindingByLabels(h *common_helper.Helper, ctx cont
 }
 
 // reconcileDeleteClusterRoleByLabels deletes ClusterRole resources by labels.
-func reconcileDeleteClusterRoleByLabels(h *common_helper.Helper, ctx context.Context, _ *apiv1beta1.OpenStackLightspeed) error {
+func reconcileDeleteClusterRoleByLabels(h *common_helper.Helper, ctx context.Context, instance *apiv1beta1.OpenStackLightspeed) error {
 	logger := h.GetLogger()
 
-	labelSelector := labels.Set(generateAppServerSelectorLabels()).AsSelector()
+	labelSelector := labels.Set(generateAppServerSelectorLabels(instance.Name)).AsSelector()
 	matchingLabels := client.MatchingLabelsSelector{Selector: labelSelector}
 	deleteOptions := &client.DeleteAllOfOptions{
 		ListOptions: client.ListOptions{
