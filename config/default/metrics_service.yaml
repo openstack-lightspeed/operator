@@ -5,6 +5,8 @@ metadata:
     control-plane: controller-manager
     app.kubernetes.io/name: openstack-lightspeed-operator
     app.kubernetes.io/managed-by: kustomize
+  annotations:
+    service.beta.openshift.io/serving-cert-secret-name: operator-metrics-tls
   name: metrics
   namespace: system
 spec:

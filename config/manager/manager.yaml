@@ -113,5 +113,13 @@ spec:
           requests:
             cpu: 10m
             memory: 64Mi
+        volumeMounts:
+        - name: cert
+          mountPath: /tmp/k8s-metrics-server/serving-certs
+          readOnly: true
       serviceAccountName: controller-manager
+      volumes:
+      - name: cert
+        secret:
+          secretName: operator-metrics-tls
       terminationGracePeriodSeconds: 10
