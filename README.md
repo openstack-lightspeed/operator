@@ -1,3 +1,5 @@
+ > **This repository has been migrated to [openstack-k8s-operators/lightspeed-operator](https://github.com/openstack-k8s-operators/lightspeed-operator). Please open all new issues and pull requests there. This repository is archived and no longer maintained.**
+
 # OpenStack Lightspeed Operator
 
 OpenStack Lightspeed Operator is a generative AI-based virtual assistant for
